@@ -3,6 +3,7 @@ import type { Action, SandboxState } from "./state.js";
 import {
   rectCorners,
   projectShadow,
+  snapToGrid,
   worldToScreen,
   screenToWorld,
   worldToLocal,
@@ -25,6 +26,7 @@ interface Props {
   dispatch: Dispatch<Action | HistoryAction>;
   sun: SunPosition;
   overlappingIds: Set<string>;
+  touchingIds: Set<string>;
   theme: "light" | "dark";
 }
 
@@ -34,21 +36,13 @@ function pointInRect(p: Point, rect: Rect): boolean {
   return Math.abs(local.x) <= rect.width / 2 && Math.abs(local.y) <= rect.height / 2;
 }
 
-/** Simple grid snap in world space */
-function snapToGrid(p: Point, stepMm: number): Point {
-  return {
-    x: Math.round(p.x / stepMm) * stepMm,
-    y: Math.round(p.y / stepMm) * stepMm,
-  };
-}
-
 type DragMode =
   | { kind: "move"; startWorld: Point }
   | { kind: "pan" }
   | { kind: "resize"; handle: ResizeHandle; oldRect: Rect; rectId: string }
   | { kind: "rotate"; oldRect: Rect; rectId: string };
 
-export function Canvas({ state, dispatch, sun, overlappingIds, theme }: Props) {
+export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, theme }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -116,6 +110,7 @@ export function Canvas({ state, dispatch, sun, overlappingIds, theme }: Props) {
       const isSelected = rect.id === state.selectedId;
       if (isSelected) selectedRect = rect;
       const isOverlap = overlappingIds.has(rect.id);
+      const isTouching = !isOverlap && touchingIds.has(rect.id);
       const isWall = rect.wallHeight > 0;
 
       ctx.beginPath();
@@ -127,9 +122,11 @@ export function Canvas({ state, dispatch, sun, overlappingIds, theme }: Props) {
 
       ctx.fillStyle = isOverlap
         ? palette.stateDangerFill
-        : isWall
-          ? palette.accentWallFill
-          : palette.accentBedFill;
+        : isTouching
+          ? palette.accentSunFill
+          : isWall
+            ? palette.accentWallFill
+            : palette.accentBedFill;
       ctx.fill();
 
       ctx.lineWidth = isSelected ? 2 : 1;
@@ -137,9 +134,11 @@ export function Canvas({ state, dispatch, sun, overlappingIds, theme }: Props) {
         ? palette.stateDanger
         : isSelected
           ? palette.accentSun
-          : isWall
-            ? palette.accentWall
-            : palette.accentBed;
+          : isTouching
+            ? palette.accentSun
+            : isWall
+              ? palette.accentWall
+              : palette.accentBed;
       ctx.stroke();
 
       // Center marker

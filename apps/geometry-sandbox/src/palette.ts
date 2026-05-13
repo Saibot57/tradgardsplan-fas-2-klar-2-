@@ -5,6 +5,7 @@ export interface CanvasPalette {
   ink2: string;
   line1: string;
   accentSun: string;
+  accentSunFill: string;
   accentBed: string;
   accentBedFill: string;
   accentWall: string;
@@ -54,13 +55,15 @@ export function readCanvasPalette(): CanvasPalette {
   const bed = readVar(s, "--accent-bed", "#6E8C5A");
   const wall = readVar(s, "--accent-wall", "#8C8478");
   const danger = readVar(s, "--state-danger", "#B23A2A");
+  const sun = readVar(s, "--accent-sun", "#D4A24C");
   return {
     bgCanvas: readVar(s, "--bg-canvas", "#ECE5D4"),
     grid: readVar(s, "--line-1", "#D8D1C0"),
     ink1: readVar(s, "--ink-1", "#1F2419"),
     ink2: readVar(s, "--ink-2", "#5B5C50"),
     line1: readVar(s, "--line-1", "#D8D1C0"),
-    accentSun: readVar(s, "--accent-sun", "#D4A24C"),
+    accentSun: sun,
+    accentSunFill: withAlpha(sun, 0.28),
     accentBed: bed,
     accentBedFill: withAlpha(bed, 0.32),
     accentWall: wall,
@@ -71,7 +74,7 @@ export function readCanvasPalette(): CanvasPalette {
     compassN: danger,
     handleFill: readVar(s, "--bg-surface", "#FBF8F2"),
     handleStroke: readVar(s, "--ink-1", "#1F2419"),
-    rotateHandleFill: readVar(s, "--accent-sun", "#D4A24C"),
+    rotateHandleFill: sun,
     centerDot: readVar(s, "--ink-1", "#1F2419"),
     measurementText: readVar(s, "--ink-1", "#1F2419"),
     labelText: readVar(s, "--ink-2", "#5B5C50"),

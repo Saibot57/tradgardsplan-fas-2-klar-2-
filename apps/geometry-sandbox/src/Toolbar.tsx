@@ -1,6 +1,6 @@
-import type { Dispatch } from "react";
+import { useState, type Dispatch } from "react";
 import type { Action, SandboxState } from "./state.js";
-import { nextId } from "./state.js";
+import { MIN_RECT_DIMENSION_MM, nextId } from "./state.js";
 import type { SunPosition } from "@kolonitradgard/spatial-core";
 import type { HistoryAction } from "./history.js";
 import { TimeSlider } from "./TimeSlider.js";
@@ -35,6 +35,7 @@ interface Props {
   totalAreaM2: number;
   totalSoilL: number;
   overlapCount: number;
+  touchCount: number;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -83,10 +84,14 @@ const valueStyle: React.CSSProperties = {
   color: "var(--ink-1)",
 };
 
-function formatCollisionStatus(n: number): string {
-  if (n === 0) return "Inga bäddar krockar";
-  if (n === 1) return "1 bädd krockar";
-  return `${n} bäddar krockar`;
+function formatCollisionStatus(overlap: number, touch: number): string {
+  if (overlap === 0 && touch === 0) return "Inga bäddar krockar";
+  const overlapLabel =
+    overlap === 0 ? "" : overlap === 1 ? "1 bädd krockar" : `${overlap} bäddar krockar`;
+  const touchLabel =
+    touch === 0 ? "" : touch === 1 ? "1 snuddar" : `${touch} snuddar`;
+  if (overlap > 0 && touch > 0) return `${overlapLabel} · ${touchLabel}`;
+  return overlapLabel || touchLabel;
 }
 
 export function Toolbar({
@@ -98,6 +103,7 @@ export function Toolbar({
   totalAreaM2,
   totalSoilL,
   overlapCount,
+  touchCount,
   onUndo,
   onRedo,
   canUndo,
@@ -107,19 +113,30 @@ export function Toolbar({
 }: Props) {
   const selected = state.rectangles.find((r) => r.id === state.selectedId);
 
-  const addRect = () =>
+  const [addOpen, setAddOpen] = useState(false);
+  const [addWidth, setAddWidth] = useState(1500);
+  const [addHeight, setAddHeight] = useState(800);
+
+  const commitAddRect = () => {
+    const w = Math.max(MIN_RECT_DIMENSION_MM, Math.round(addWidth));
+    const h = Math.max(MIN_RECT_DIMENSION_MM, Math.round(addHeight));
+    // Auto-offset så nya bäddar inte staplas på samma punkt: gå snett 600 mm
+    // åt höger/ned per existerande bädd, modulo en ruta.
+    const offset = (state.rectangles.length % 8) * 600;
     dispatch({
       type: "addRect",
       rect: {
         id: nextId(),
-        cx: 5000,
-        cy: 5000,
-        width: 1500,
-        height: 800,
+        cx: 5000 + offset,
+        cy: 5000 + offset,
+        width: w,
+        height: h,
         rotationDeg: 0,
         wallHeight: 0,
       },
     });
+    setAddOpen(false);
+  };
 
   const sunAltDeg = (sun.altitudeRad * 180) / Math.PI;
   const sunAzDeg = (sun.azimuthRad * 180) / Math.PI;
@@ -168,7 +185,13 @@ export function Toolbar({
 
       {/* Add / remove */}
       <div style={sectionStyle}>
-        <button data-pp-btn data-variant="primary" onClick={addRect} title="Lägg till bädd">
+        <button
+          data-pp-btn
+          data-variant="primary"
+          onClick={() => setAddOpen((v) => !v)}
+          title="Lägg till bädd"
+          aria-expanded={addOpen}
+        >
           <IconPlus size={14} /> Lägg till bädd
         </button>
         <button
@@ -181,6 +204,17 @@ export function Toolbar({
           <IconTrash size={14} />
         </button>
       </div>
+
+      {addOpen && (
+        <AddRectPopover
+          width={addWidth}
+          height={addHeight}
+          onWidth={setAddWidth}
+          onHeight={setAddHeight}
+          onCancel={() => setAddOpen(false)}
+          onConfirm={commitAddRect}
+        />
+      )}
 
       {/* Undo / redo */}
       <div style={sectionStyle}>
@@ -369,19 +403,23 @@ export function Toolbar({
         </span>
       </div>
 
-      {/* Overlap status */}
+      {/* Overlap / touch status */}
       <div style={sectionStyle}>
         <span
           style={{
             display: "inline-flex",
             alignItems: "center",
             gap: 6,
-            color: overlapCount ? "var(--state-danger)" : "var(--state-success)",
+            color: overlapCount
+              ? "var(--state-danger)"
+              : touchCount
+                ? "var(--accent-sun)"
+                : "var(--state-success)",
             fontSize: 12.5,
           }}
         >
-          {overlapCount ? <IconTriangleAlert size={14} /> : <IconCheck size={14} />}
-          {formatCollisionStatus(overlapCount)}
+          {overlapCount || touchCount ? <IconTriangleAlert size={14} /> : <IconCheck size={14} />}
+          {formatCollisionStatus(overlapCount, touchCount)}
         </span>
       </div>
 
@@ -399,5 +437,122 @@ export function Toolbar({
         </button>
       </div>
     </div>
+  );
+}
+
+interface AddRectPopoverProps {
+  width: number;
+  height: number;
+  onWidth: (w: number) => void;
+  onHeight: (h: number) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function AddRectPopover({
+  width,
+  height,
+  onWidth,
+  onHeight,
+  onCancel,
+  onConfirm,
+}: AddRectPopoverProps) {
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        onClick={onCancel}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(15, 17, 12, 0.18)",
+          zIndex: 40,
+        }}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Ny bädd"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onCancel();
+          if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") onConfirm();
+        }}
+        style={{
+          position: "fixed",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          zIndex: 41,
+          background: "var(--bg-surface)",
+          border: "1px solid var(--line-1)",
+          borderRadius: "var(--radius-3)",
+          boxShadow: "var(--shadow-3)",
+          padding: "18px 20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          minWidth: 280,
+          fontFamily: "var(--font-sans)",
+        }}
+      >
+      <div
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: 14,
+          color: "var(--ink-1)",
+          fontWeight: 500,
+        }}
+      >
+        Ny bädd
+      </div>
+      <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--ink-2)" }}>
+        <span style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>Bredd</span>
+        <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+          <input
+            type="number"
+            value={width}
+            step={100}
+            min={MIN_RECT_DIMENSION_MM}
+            autoFocus
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n)) onWidth(n);
+            }}
+            data-pp-input
+            data-mono="true"
+            style={{ width: 88, textAlign: "right", fontSize: 13 }}
+          />
+          <span style={{ color: "var(--ink-2)", fontSize: 12.5 }}>mm</span>
+        </span>
+      </label>
+      <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--ink-2)" }}>
+        <span style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>Höjd</span>
+        <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+          <input
+            type="number"
+            value={height}
+            step={100}
+            min={MIN_RECT_DIMENSION_MM}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              if (Number.isFinite(n)) onHeight(n);
+            }}
+            data-pp-input
+            data-mono="true"
+            style={{ width: 88, textAlign: "right", fontSize: 13 }}
+          />
+          <span style={{ color: "var(--ink-2)", fontSize: 12.5 }}>mm</span>
+        </span>
+      </label>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
+          <button data-pp-btn data-variant="ghost" onClick={onCancel}>
+            Avbryt
+          </button>
+          <button data-pp-btn data-variant="primary" onClick={onConfirm}>
+            Lägg till
+          </button>
+        </div>
+      </div>
+    </>
   );
 }

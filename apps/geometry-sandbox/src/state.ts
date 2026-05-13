@@ -1,10 +1,4 @@
-import type {
-  Rect,
-  GeoLocation,
-  PlotConfig,
-  DEFAULT_PLOT_CONFIG,
-  SceneV1,
-} from "@kolonitradgard/spatial-core";
+import { roundToWorldMm, type Rect, type GeoLocation, type SceneV1 } from "@kolonitradgard/spatial-core";
 
 /** Minimum width/height for any Rect in the sandbox (precision_policy §7). */
 export const MIN_RECT_DIMENSION_MM = 100;
@@ -114,11 +108,11 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
       if (!state.selectedId) return state;
       return {
         ...state,
-        rectangles: state.rectangles.map((r) =>
-          r.id === state.selectedId
-            ? { ...r, cx: Math.round(r.cx + action.dx), cy: Math.round(r.cy + action.dy) }
-            : r,
-        ),
+        rectangles: state.rectangles.map((r) => {
+          if (r.id !== state.selectedId) return r;
+          const p = roundToWorldMm({ x: r.cx + action.dx, y: r.cy + action.dy });
+          return { ...r, cx: p.x, cy: p.y };
+        }),
       };
 
     case "rotateSelected":
@@ -150,17 +144,17 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
     case "resizeRect":
       return {
         ...state,
-        rectangles: state.rectangles.map((r) =>
-          r.id === action.id
-            ? {
-                ...r,
-                cx: Math.round(action.cx),
-                cy: Math.round(action.cy),
-                width: Math.max(MIN_RECT_DIMENSION_MM, Math.round(action.width)),
-                height: Math.max(MIN_RECT_DIMENSION_MM, Math.round(action.height)),
-              }
-            : r,
-        ),
+        rectangles: state.rectangles.map((r) => {
+          if (r.id !== action.id) return r;
+          const p = roundToWorldMm({ x: action.cx, y: action.cy });
+          return {
+            ...r,
+            cx: p.x,
+            cy: p.y,
+            width: Math.max(MIN_RECT_DIMENSION_MM, Math.round(action.width)),
+            height: Math.max(MIN_RECT_DIMENSION_MM, Math.round(action.height)),
+          };
+        }),
       };
 
     case "rotateRect":

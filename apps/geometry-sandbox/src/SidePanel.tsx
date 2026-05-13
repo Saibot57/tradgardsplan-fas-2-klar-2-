@@ -25,6 +25,8 @@ interface Props {
   state: SandboxState;
   bedDepth: number;
   dispatch: Dispatch<Action | HistoryAction>;
+  overlappingIds: Set<string>;
+  touchingIds: Set<string>;
 }
 
 const panelStyle: React.CSSProperties = {
@@ -129,7 +131,7 @@ function BoundaryNumberRow({
   );
 }
 
-export function SidePanel({ state, bedDepth, dispatch }: Props) {
+export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingIds }: Props) {
   const selected: Rect | undefined = state.rectangles.find(
     (r) => r.id === state.selectedId,
   );
@@ -184,6 +186,18 @@ export function SidePanel({ state, bedDepth, dispatch }: Props) {
         <section>
           <div style={sectionTitleStyle}>Geometri</div>
           <Row label="ID" value={selected.id} />
+          <Row
+            label="Status"
+            value={
+              overlappingIds.has(selected.id) ? (
+                <span style={{ color: "var(--state-danger)" }}>Krockar</span>
+              ) : touchingIds.has(selected.id) ? (
+                <span style={{ color: "var(--accent-sun)" }}>Snuddar kant</span>
+              ) : (
+                <span style={{ color: "var(--state-success)" }}>Fristående</span>
+              )
+            }
+          />
           <Row
             label="Mått"
             value={

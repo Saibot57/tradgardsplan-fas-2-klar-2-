@@ -4,9 +4,12 @@ import { Toolbar } from "./Toolbar.js";
 import { SidePanel } from "./SidePanel.js";
 import { initialState, reducer, type Action } from "./state.js";
 import {
-  rectOverlap,
+  aabbOverlap,
   bedSoilVolumeLitres,
+  rectAABB,
   rectAreaM2,
+  rectEdgeTouch,
+  rectOverlap,
   sunPositionAt,
 } from "@kolonitradgard/spatial-core";
 import {
@@ -80,20 +83,29 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Derived: pairwise overlaps
-  const overlappingIds = useMemo(() => {
-    const ids = new Set<string>();
+  // Derived: pairwise overlap + edge-touch.
+  // AABB-pre-filter (broadphase) skippar par vars axis-aligned bounding-boxes
+  // är åtskilda — de kan varken krocka eller snudda. SAT (rectOverlap /
+  // rectEdgeTouch) körs bara på par som passerar broadphase.
+  const { overlappingIds, touchingIds } = useMemo(() => {
+    const overlap = new Set<string>();
+    const touch = new Set<string>();
+    const aabbs = state.rectangles.map(rectAABB);
     for (let i = 0; i < state.rectangles.length; i++) {
       for (let j = i + 1; j < state.rectangles.length; j++) {
+        if (!aabbOverlap(aabbs[i]!, aabbs[j]!)) continue;
         const a = state.rectangles[i]!;
         const b = state.rectangles[j]!;
         if (rectOverlap(a, b)) {
-          ids.add(a.id);
-          ids.add(b.id);
+          overlap.add(a.id);
+          overlap.add(b.id);
+        } else if (rectEdgeTouch(a, b)) {
+          touch.add(a.id);
+          touch.add(b.id);
         }
       }
     }
-    return ids;
+    return { overlappingIds: overlap, touchingIds: touch };
   }, [state.rectangles]);
 
   // FAS 1.5: use plot.location for sun position
@@ -119,6 +131,7 @@ export function App() {
         totalAreaM2={totalAreaM2}
         totalSoilL={totalSoilL}
         overlapCount={overlappingIds.size / 2}
+        touchCount={touchingIds.size / 2}
         onUndo={onUndo}
         onRedo={onRedo}
         canUndo={canUndo(historyState)}
@@ -132,9 +145,16 @@ export function App() {
           dispatch={dispatch}
           sun={sun}
           overlappingIds={overlappingIds}
+          touchingIds={touchingIds}
           theme={theme}
         />
-        <SidePanel state={state} bedDepth={bedDepth} dispatch={dispatch} />
+        <SidePanel
+          state={state}
+          bedDepth={bedDepth}
+          dispatch={dispatch}
+          overlappingIds={overlappingIds}
+          touchingIds={touchingIds}
+        />
       </div>
     </div>
   );
