@@ -3,6 +3,7 @@ import type { Action, SandboxState } from "./state.js";
 import {
   rectCorners,
   projectShadow,
+  sampleSunHourly,
   snapToGrid,
   worldToScreen,
   screenToWorld,
@@ -37,7 +38,7 @@ function pointInRect(p: Point, rect: Rect): boolean {
 }
 
 type DragMode =
-  | { kind: "move"; startWorld: Point }
+  | { kind: "move"; startWorld: Point; startPrimaryCx: number; startPrimaryCy: number }
   | { kind: "pan" }
   | { kind: "resize"; handle: ResizeHandle; oldRect: Rect; rectId: string }
   | { kind: "rotate"; oldRect: Rect; rectId: string };
@@ -84,7 +85,34 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
     // Compass — uses northRotationDeg (ADR-006)
     drawCompass(ctx, w, palette, state.plot.northRotationDeg);
 
-    // Shadows
+    // Sun-path heatmap (06–20, 1-h-steg, svag opacity per skugga)
+    if (state.showSunPath) {
+      const day = new Date(state.sun.dateIso);
+      day.setHours(0, 0, 0, 0);
+      const samples = sampleSunHourly(day, state.plot.location, 6, 20);
+      ctx.save();
+      ctx.fillStyle = palette.shadowCanvas;
+      ctx.globalAlpha = 0.10;
+      for (const sample of samples) {
+        if (sample.sun.altitudeRad <= 0) continue;
+        for (const rect of state.rectangles) {
+          if (rect.wallHeight <= 0) continue;
+          const poly = projectShadow(rect, sample.sun, state.plot.northRotationDeg);
+          if (!poly) continue;
+          ctx.beginPath();
+          for (let i = 0; i < poly.length; i++) {
+            const s = worldToScreen(poly[i]!, state.viewport);
+            if (i === 0) ctx.moveTo(s.x, s.y);
+            else ctx.lineTo(s.x, s.y);
+          }
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+
+    // Shadows (interaktiv tidpunkt)
     if (state.showShadows) {
       ctx.fillStyle = palette.shadowCanvas;
       for (const rect of state.rectangles) {
@@ -102,13 +130,16 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
     }
 
     // Rectangles
-    let selectedRect: Rect | null = null;
+    const selectedSet = new Set(state.selectedIds);
+    const primaryId = state.selectedIds[0] ?? null;
+    let primaryRect: Rect | null = null;
     for (const rect of state.rectangles) {
       const corners = rectCorners(rect);
       const sc = corners.map((c) => worldToScreen(c, state.viewport));
 
-      const isSelected = rect.id === state.selectedId;
-      if (isSelected) selectedRect = rect;
+      const isSelected = selectedSet.has(rect.id);
+      const isPrimary = rect.id === primaryId;
+      if (isPrimary) primaryRect = rect;
       const isOverlap = overlappingIds.has(rect.id);
       const isTouching = !isOverlap && touchingIds.has(rect.id);
       const isWall = rect.wallHeight > 0;
@@ -162,19 +193,26 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
 
     // Mått-overlay under drag (move/resize)
     const drag = dragRef.current;
-    if (drag && state.selectedId && (drag.mode.kind === "move" || drag.mode.kind === "resize")) {
-      const selected = state.rectangles.find((r) => r.id === state.selectedId);
-      if (selected) {
-        const c = worldToScreen({ x: selected.cx, y: selected.cy }, state.viewport);
-        ctx.fillStyle = palette.measurementText;
-        ctx.font = "600 13px var(--font-mono, ui-monospace, Menlo, monospace)";
-        ctx.fillText(`${selected.width} × ${selected.height} mm`, c.x + 12, c.y - 20);
+    if (drag && primaryRect && (drag.mode.kind === "move" || drag.mode.kind === "resize")) {
+      const c = worldToScreen({ x: primaryRect.cx, y: primaryRect.cy }, state.viewport);
+      ctx.fillStyle = palette.measurementText;
+      ctx.font = "600 13px var(--font-mono, ui-monospace, Menlo, monospace)";
+      ctx.fillText(`${primaryRect.width} × ${primaryRect.height} mm`, c.x + 12, c.y - 20);
+      if (drag.mode.kind === "move") {
+        const dx = primaryRect.cx - drag.mode.startPrimaryCx;
+        const dy = primaryRect.cy - drag.mode.startPrimaryCy;
+        ctx.font = "500 12px var(--font-mono, ui-monospace, Menlo, monospace)";
+        ctx.fillText(
+          `Δ ${dx >= 0 ? "+" : ""}${dx} , ${dy >= 0 ? "+" : ""}${dy} mm`,
+          c.x + 12,
+          c.y - 4,
+        );
       }
     }
 
-    // Handles for selected rect (drawn last so they sit on top)
-    if (selectedRect) {
-      drawHandles(ctx, selectedRect, state.viewport, palette);
+    // Handles bara för primary-selected (resize/rotate på flera samtidigt är inte definierat)
+    if (primaryRect) {
+      drawHandles(ctx, primaryRect, state.viewport, palette);
     }
   }, [state, sun, overlappingIds, theme]);
 
@@ -186,9 +224,13 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
     const screenP = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     const worldP = screenToWorld(screenP, state.viewport);
 
-    // 1. Handle hit-test (only if something is currently selected).
-    if (state.selectedId) {
-      const selected = state.rectangles.find((r) => r.id === state.selectedId);
+    const primaryId = state.selectedIds[0] ?? null;
+    const shift = e.shiftKey;
+
+    // 1. Handle hit-test (only on primary selected, ignoreras vid shift-klick för
+    //    att inte slukas av handle istället för toggle).
+    if (primaryId && !shift) {
+      const selected = state.rectangles.find((r) => r.id === primaryId);
       if (selected) {
         const handle = hitTestHandle(screenP, selected, state.viewport);
         if (handle === "rotate") {
@@ -224,16 +266,29 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
     }
 
     if (hitId) {
-      dispatch({ type: "select", id: hitId });
-      // Commit pre-move state so undo restores starting position.
-      dispatch({ type: "commitHistory" });
-      dragRef.current = {
-        lastX: e.clientX,
-        lastY: e.clientY,
-        mode: { kind: "move", startWorld: worldP },
-      };
+      // Shift-klick togglar markering; vanligt klick byter ut.
+      dispatch({ type: "select", id: hitId, mode: shift ? "toggle" : "replace" });
+      // Starta drag bara om vi inte just shift-togglade bort en bädd.
+      const wasSelected = state.selectedIds.includes(hitId);
+      const willBeSelected = !shift || !wasSelected; // efter dispatch
+      if (willBeSelected) {
+        dispatch({ type: "commitHistory" });
+        const hitRect = state.rectangles.find((r) => r.id === hitId);
+        dragRef.current = {
+          lastX: e.clientX,
+          lastY: e.clientY,
+          mode: {
+            kind: "move",
+            startWorld: worldP,
+            startPrimaryCx: hitRect?.cx ?? 0,
+            startPrimaryCy: hitRect?.cy ?? 0,
+          },
+        };
+      } else {
+        dragRef.current = null;
+      }
     } else {
-      dispatch({ type: "select", id: null });
+      if (!shift) dispatch({ type: "select", id: null });
       dragRef.current = { lastX: e.clientX, lastY: e.clientY, mode: { kind: "pan" } };
     }
     (e.target as Element).setPointerCapture(e.pointerId);
@@ -276,13 +331,14 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
       return;
     }
 
-    if (mode.kind === "move" && state.selectedId) {
+    if (mode.kind === "move" && state.selectedIds.length > 0) {
       let dx = dxPx / state.viewport.pixelsPerMm;
       let dy = dyPx / state.viewport.pixelsPerMm;
 
-      // Grid snap (only during drag, before roundToWorldMm on up)
+      // Grid snap baseras på primary-bädden under drag.
       if (state.snapToGrid) {
-        const selected = state.rectangles.find((r) => r.id === state.selectedId);
+        const primaryId = state.selectedIds[0];
+        const selected = state.rectangles.find((r) => r.id === primaryId);
         if (selected) {
           const newPos = {
             x: selected.cx + dx,

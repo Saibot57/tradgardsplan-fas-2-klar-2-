@@ -52,6 +52,10 @@ export interface Rect {
   rotationDeg: number; // clockwise degrees in world space
   /** Vertical wall/extrusion height in mm for shadow casting. 0 = no shadow. */
   wallHeight: number;
+  /** Valfritt mänskligt namn (scene v2). */
+  label?: string;
+  /** Valfria fri-text-anteckningar (scene v2). */
+  notes?: string;
 }
 
 /** A geographic location. */

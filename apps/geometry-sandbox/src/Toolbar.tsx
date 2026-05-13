@@ -4,8 +4,10 @@ import { MIN_RECT_DIMENSION_MM, nextId } from "./state.js";
 import type { SunPosition } from "@kolonitradgard/spatial-core";
 import type { HistoryAction } from "./history.js";
 import { TimeSlider } from "./TimeSlider.js";
-import { loadSceneFromFile, saveScene } from "./io.js";
+import { exportCanvasAsPng, loadSceneFromFile, saveScene } from "./io.js";
 import { fmtInt, fmtNum } from "./format.js";
+import type { AutoSaveStatus } from "./useAutoSave.js";
+import type { ScenePersistence } from "./persistence.js";
 import {
   IconCheck,
   IconCompass,
@@ -42,6 +44,26 @@ interface Props {
   canRedo: boolean;
   theme: "light" | "dark";
   onToggleTheme: () => void;
+  autoSaveStatus: AutoSaveStatus;
+  onResetAutoSaveBaseline: () => void;
+  adapter: ScenePersistence;
+}
+
+function formatAutoSaveStatus(s: AutoSaveStatus): { text: string; tone: "ok" | "warn" | "muted" } {
+  switch (s.kind) {
+    case "idle":
+      return { text: "Ej sparat ännu", tone: "muted" };
+    case "saving":
+      return { text: "Sparar…", tone: "muted" };
+    case "saved": {
+      const d = new Date(s.at);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(d.getMinutes()).padStart(2, "0");
+      return { text: `Sparad · ${hh}:${mm}`, tone: "ok" };
+    }
+    case "error":
+      return { text: `Fel: ${s.message}`, tone: "warn" };
+  }
 }
 
 const sectionStyle: React.CSSProperties = {
@@ -110,8 +132,14 @@ export function Toolbar({
   canRedo,
   theme,
   onToggleTheme,
+  autoSaveStatus,
+  onResetAutoSaveBaseline,
+  adapter,
 }: Props) {
-  const selected = state.rectangles.find((r) => r.id === state.selectedId);
+  const autoSave = formatAutoSaveStatus(autoSaveStatus);
+  const primaryId = state.selectedIds[0] ?? null;
+  const selected = state.rectangles.find((r) => r.id === primaryId);
+  const multiCount = state.selectedIds.length;
 
   const [addOpen, setAddOpen] = useState(false);
   const [addWidth, setAddWidth] = useState(1500);
@@ -243,15 +271,75 @@ export function Toolbar({
         <button data-pp-btn onClick={() => saveScene(state)} title="Ladda ner scen.json">
           <IconSave size={14} /> Spara
         </button>
-        <button data-pp-btn onClick={() => loadSceneFromFile(dispatch)} title="Ladda scen.json">
+        <button
+          data-pp-btn
+          onClick={() => loadSceneFromFile(dispatch, onResetAutoSaveBaseline)}
+          title="Ladda scen.json"
+        >
           <IconFolderOpen size={14} /> Ladda
         </button>
+        <button
+          data-pp-btn
+          data-variant="ghost"
+          onClick={() => exportCanvasAsPng()}
+          title="Exportera arbetsytan som PNG"
+        >
+          PNG
+        </button>
+        <button
+          data-pp-btn
+          data-variant="ghost"
+          onClick={() => {
+            if (!window.confirm("Starta om med en tom scen? Nuvarande scen sparas över.")) return;
+            adapter.clear().finally(() => {
+              onResetAutoSaveBaseline();
+              dispatch({ type: "newScene" });
+            });
+          }}
+          title="Skapa ny tom scen (rensar persistens)"
+        >
+          Ny
+        </button>
+        <span
+          data-pp-status
+          data-tone={autoSave.tone}
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color:
+              autoSave.tone === "warn"
+                ? "var(--state-danger)"
+                : autoSave.tone === "ok"
+                  ? "var(--state-success)"
+                  : "var(--ink-2)",
+            marginLeft: 4,
+            whiteSpace: "nowrap",
+          }}
+          title={
+            autoSaveStatus.kind === "saved"
+              ? `Senast sparat ${new Date(autoSaveStatus.at).toLocaleString("sv-SE")}`
+              : autoSave.text
+          }
+        >
+          {autoSave.text}
+        </span>
       </div>
 
       {/* Selected rect controls */}
       {selected && (
         <div style={sectionStyle}>
-          <span style={valueStyle}>{selected.id}</span>
+          <span style={valueStyle}>
+            {selected.label || selected.id}
+            {multiCount > 1 ? ` +${multiCount - 1}` : ""}
+          </span>
+          <button
+            data-pp-btn
+            data-icon-only="true"
+            onClick={() => dispatch({ type: "duplicateSelected" })}
+            title={`Duplicera vald${multiCount > 1 ? "a" : ""} bädd${multiCount > 1 ? "ar" : ""} (⌘D / Ctrl+D)`}
+          >
+            <IconPlus size={14} />
+          </button>
           <button
             data-pp-btn
             data-icon-only="true"
@@ -301,6 +389,15 @@ export function Toolbar({
             data-pp-input
           />
           <IconLayers size={13} /> Skuggor
+        </label>
+        <label style={inlineLabelStyle} title="Visa skuggsvep 06–20 vid valt datum">
+          <input
+            type="checkbox"
+            checked={state.showSunPath}
+            onChange={() => dispatch({ type: "toggleSunPath" })}
+            data-pp-input
+          />
+          Sol-svep
         </label>
         <span
           style={{

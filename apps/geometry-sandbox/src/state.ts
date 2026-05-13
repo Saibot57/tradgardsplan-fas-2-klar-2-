@@ -1,14 +1,20 @@
-import { roundToWorldMm, type Rect, type GeoLocation, type SceneV1 } from "@kolonitradgard/spatial-core";
+import { roundToWorldMm, type Rect, type GeoLocation, type SceneV2 } from "@kolonitradgard/spatial-core";
 
 /** Minimum width/height for any Rect in the sandbox (precision_policy §7). */
 export const MIN_RECT_DIMENSION_MM = 100;
 
 export interface SandboxState {
   rectangles: Rect[];
-  selectedId: string | null;
+  /**
+   * Markerade bäddar (multi-select). Första elementet är "primary" — det
+   * bäddinspektorn och handles agerar på. Tom array = inget valt.
+   */
+  selectedIds: string[];
   viewport: { panX: number; panY: number; pixelsPerMm: number };
   sun: { dateIso: string };
   showShadows: boolean;
+  /** Visa skuggsvep 06–20 vid valt datum (sun-path heatmap). */
+  showSunPath: boolean;
   /** ADR-006: Geographic orientation separated from world space. */
   plot: {
     northRotationDeg: number;
@@ -19,10 +25,17 @@ export interface SandboxState {
   gridStepMm: number;
 }
 
+/** Convenience: primary selected id (eller null). */
+export function primarySelectedId(state: SandboxState): string | null {
+  return state.selectedIds[0] ?? null;
+}
+
 export type Action =
   | { type: "addRect"; rect: Rect }
   | { type: "removeSelected" }
-  | { type: "select"; id: string | null }
+  | { type: "select"; id: string | null; mode?: "replace" | "toggle" | "add" }
+  | { type: "selectMany"; ids: string[] }
+  | { type: "duplicateSelected" }
   | { type: "moveSelected"; dx: number; dy: number } // world mm
   | { type: "rotateSelected"; deltaDeg: number }
   | { type: "resizeSelected"; dWidth: number; dHeight: number }
@@ -32,106 +45,176 @@ export type Action =
   | { type: "setViewport"; viewport: SandboxState["viewport"] }
   | { type: "setSun"; dateIso: string }
   | { type: "toggleShadows" }
+  | { type: "toggleSunPath" }
   | { type: "setNorthRotation"; deg: number }
   | { type: "setLocation"; loc: GeoLocation }
   | { type: "setPlotBoundary"; rect: Rect | null }
   | { type: "setSnapToGrid"; enabled: boolean }
   | { type: "setGridStep"; mm: number }
-  | { type: "loadScene"; scene: SceneV1 };
+  | { type: "loadScene"; scene: SceneV2 }
+  | { type: "newScene" }
+  | { type: "setRectMeta"; id: string; label?: string; notes?: string };
 
 let _id = 0;
 export const nextId = (): string => `rect-${++_id}`;
 
-export const initialState: SandboxState = {
-  rectangles: [
-    {
-      id: nextId(),
-      cx: 4000,
-      cy: 4000,
-      width: 2000,
-      height: 1000,
-      rotationDeg: 0,
-      wallHeight: 0,
+/** TimeSlider-fönster (06–20). Håll i synk med TimeSlider.tsx HOUR_MIN/MAX. */
+export const SUN_HOUR_MIN = 6;
+export const SUN_HOUR_MAX = 20;
+
+/**
+ * Producerar en initial sandbox-state utifrån nuvarande tidpunkt.
+ * Klockslaget clampas till TimeSlider-fönstret (06–20) så slidern startar
+ * inom sin range; datumet bevaras alltid.
+ */
+export function makeInitialState(now: Date = new Date()): SandboxState {
+  const clamped = new Date(now);
+  const h = clamped.getHours();
+  if (h < SUN_HOUR_MIN) clamped.setHours(SUN_HOUR_MIN, 0, 0, 0);
+  else if (h > SUN_HOUR_MAX) clamped.setHours(SUN_HOUR_MAX, 0, 0, 0);
+
+  return {
+    rectangles: [
+      {
+        id: nextId(),
+        cx: 4000,
+        cy: 4000,
+        width: 2000,
+        height: 1000,
+        rotationDeg: 0,
+        wallHeight: 0,
+      },
+      {
+        id: nextId(),
+        cx: 8000,
+        cy: 4000,
+        width: 1500,
+        height: 1500,
+        rotationDeg: 25,
+        wallHeight: 0,
+      },
+      {
+        id: nextId(),
+        cx: 6000,
+        cy: 1500,
+        width: 4000,
+        height: 200,
+        rotationDeg: 0,
+        wallHeight: 1800,
+      },
+    ],
+    selectedIds: [],
+    viewport: { panX: 40, panY: 40, pixelsPerMm: 0.07 },
+    sun: { dateIso: clamped.toISOString() },
+    showShadows: true,
+    showSunPath: false,
+    plot: {
+      northRotationDeg: 0,
+      location: {
+        latitudeDeg: 55.8708,
+        longitudeDeg: 12.83,
+      },
+      boundaryRect: null,
     },
-    {
-      id: nextId(),
-      cx: 8000,
-      cy: 4000,
-      width: 1500,
-      height: 1500,
-      rotationDeg: 25,
-      wallHeight: 0,
-    },
-    {
-      id: nextId(),
-      cx: 6000,
-      cy: 1500,
-      width: 4000,
-      height: 200,
-      rotationDeg: 0,
-      wallHeight: 1800,
-    },
-  ],
-  selectedId: null,
-  viewport: { panX: 40, panY: 40, pixelsPerMm: 0.07 },
-  sun: { dateIso: new Date(2025, 5, 21, 12, 0, 0).toISOString() },
-  showShadows: true,
-  plot: {
-    northRotationDeg: 0,
-    location: {
-      latitudeDeg: 55.8708,
-      longitudeDeg: 12.83,
-    },
-    boundaryRect: null,
-  },
-  snapToGrid: false,
-  gridStepMm: 100,
-};
+    snapToGrid: false,
+    gridStepMm: 100,
+  };
+}
+
+/** Bevaras för bakåtkompatibilitet (tester). Använd makeInitialState() i produktionskod. */
+export const initialState: SandboxState = makeInitialState(new Date(2025, 5, 21, 12, 0, 0));
 
 export function reducer(state: SandboxState, action: Action): SandboxState {
   switch (action.type) {
     case "addRect":
       return { ...state, rectangles: [...state.rectangles, action.rect] };
 
-    case "removeSelected":
-      if (!state.selectedId) return state;
+    case "removeSelected": {
+      if (state.selectedIds.length === 0) return state;
+      const remove = new Set(state.selectedIds);
       return {
         ...state,
-        rectangles: state.rectangles.filter((r) => r.id !== state.selectedId),
-        selectedId: null,
+        rectangles: state.rectangles.filter((r) => !remove.has(r.id)),
+        selectedIds: [],
       };
+    }
 
-    case "select":
-      return { ...state, selectedId: action.id };
+    case "select": {
+      if (action.id === null) return { ...state, selectedIds: [] };
+      const mode = action.mode ?? "replace";
+      const existing = state.selectedIds;
+      if (mode === "replace") return { ...state, selectedIds: [action.id] };
+      if (mode === "toggle") {
+        if (existing.includes(action.id)) {
+          return { ...state, selectedIds: existing.filter((id) => id !== action.id) };
+        }
+        return { ...state, selectedIds: [...existing, action.id] };
+      }
+      // mode === "add"
+      if (existing.includes(action.id)) return state;
+      return { ...state, selectedIds: [...existing, action.id] };
+    }
 
-    case "moveSelected":
-      if (!state.selectedId) return state;
+    case "selectMany":
+      return { ...state, selectedIds: action.ids.slice() };
+
+    case "duplicateSelected": {
+      if (state.selectedIds.length === 0) return state;
+      const offset = 600; // mm — samma som commitAddRect i Toolbar
+      const newRects: Rect[] = [];
+      const newIds: string[] = [];
+      for (const id of state.selectedIds) {
+        const original = state.rectangles.find((r) => r.id === id);
+        if (!original) continue;
+        const copy: Rect = {
+          ...original,
+          id: nextId(),
+          cx: Math.round(original.cx + offset),
+          cy: Math.round(original.cy + offset),
+        };
+        newRects.push(copy);
+        newIds.push(copy.id);
+      }
+      return {
+        ...state,
+        rectangles: [...state.rectangles, ...newRects],
+        selectedIds: newIds,
+      };
+    }
+
+    case "moveSelected": {
+      if (state.selectedIds.length === 0) return state;
+      const sel = new Set(state.selectedIds);
       return {
         ...state,
         rectangles: state.rectangles.map((r) => {
-          if (r.id !== state.selectedId) return r;
+          if (!sel.has(r.id)) return r;
           const p = roundToWorldMm({ x: r.cx + action.dx, y: r.cy + action.dy });
           return { ...r, cx: p.x, cy: p.y };
         }),
       };
+    }
 
-    case "rotateSelected":
-      if (!state.selectedId) return state;
+    case "rotateSelected": {
+      const primary = state.selectedIds[0];
+      if (!primary) return state;
       return {
         ...state,
         rectangles: state.rectangles.map((r) =>
-          r.id === state.selectedId
+          r.id === primary
             ? { ...r, rotationDeg: (r.rotationDeg + action.deltaDeg) % 360 }
             : r,
         ),
       };
+    }
 
-    case "resizeSelected":
-      if (!state.selectedId) return state;
+    case "resizeSelected": {
+      const primary = state.selectedIds[0];
+      if (!primary) return state;
       return {
         ...state,
         rectangles: state.rectangles.map((r) =>
-          r.id === state.selectedId
+          r.id === primary
             ? {
                 ...r,
                 width: Math.max(MIN_RECT_DIMENSION_MM, Math.round(r.width + action.dWidth)),
@@ -140,6 +223,7 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
             : r,
         ),
       };
+    }
 
     case "resizeRect":
       return {
@@ -182,6 +266,9 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
     case "toggleShadows":
       return { ...state, showShadows: !state.showShadows };
 
+    case "toggleSunPath":
+      return { ...state, showSunPath: !state.showSunPath };
+
     case "setNorthRotation":
       return { ...state, plot: { ...state.plot, northRotationDeg: action.deg } };
 
@@ -201,13 +288,39 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
       return {
         ...state,
         rectangles: action.scene.rectangles,
-        selectedId: null,
+        selectedIds: [],
         plot: {
           northRotationDeg: action.scene.plot.northRotationDeg,
           location: action.scene.plot.location,
           boundaryRect: action.scene.boundary ?? null,
         },
         // viewport och sun bevaras (session-state, inte scene-state — ADR-007/008)
+      };
+
+    case "newScene":
+      return {
+        ...state,
+        rectangles: [],
+        selectedIds: [],
+        plot: { ...state.plot, boundaryRect: null },
+      };
+
+    case "setRectMeta":
+      return {
+        ...state,
+        rectangles: state.rectangles.map((r) => {
+          if (r.id !== action.id) return r;
+          const next: Rect = { ...r };
+          if (action.label !== undefined) {
+            if (action.label === "") delete next.label;
+            else next.label = action.label;
+          }
+          if (action.notes !== undefined) {
+            if (action.notes === "") delete next.notes;
+            else next.notes = action.notes;
+          }
+          return next;
+        }),
       };
   }
 }

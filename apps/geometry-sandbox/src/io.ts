@@ -30,9 +30,11 @@ export function saveScene(state: SandboxState): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Open a file picker, parse + migrate scene, dispatch loadScene. Shows alert on error. */
+/** Open a file picker, parse + migrate scene, dispatch loadScene. Shows alert on error.
+ *  onLoaded körs efter lyckad dispatch — används för att resetta auto-save baseline. */
 export async function loadSceneFromFile(
   dispatch: Dispatch<Action | HistoryAction>,
+  onLoaded?: () => void,
 ): Promise<void> {
   const input = document.createElement("input");
   input.type = "file";
@@ -69,6 +71,7 @@ export async function loadSceneFromFile(
     const scene = migrateScene(parseScene(raw));
     dispatch({ type: "commitHistory" });
     dispatch({ type: "loadScene", scene });
+    onLoaded?.();
   } catch (err) {
     if (err instanceof SceneParseError) {
       window.alert(`Ogiltig scen-fil: ${err.message}`);
@@ -76,4 +79,27 @@ export async function loadSceneFromFile(
       window.alert(`Oväntat fel vid laddning: ${(err as Error).message}`);
     }
   }
+}
+
+/** Exportera nuvarande canvas (första <canvas>-elementet) som PNG-nedladdning. */
+export function exportCanvasAsPng(filename: string = "tradgardsplan.png"): void {
+  const canvas = document.querySelector<HTMLCanvasElement>("canvas");
+  if (!canvas) {
+    window.alert("Ingen canvas hittades.");
+    return;
+  }
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      window.alert("Kunde inte exportera PNG.");
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, "image/png");
 }

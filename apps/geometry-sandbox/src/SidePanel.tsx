@@ -132,9 +132,11 @@ function BoundaryNumberRow({
 }
 
 export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingIds }: Props) {
+  const primaryId = state.selectedIds[0] ?? null;
   const selected: Rect | undefined = state.rectangles.find(
-    (r) => r.id === state.selectedId,
+    (r) => r.id === primaryId,
   );
+  const multiCount = state.selectedIds.length;
 
   const sunHoursValue = useMemo(() => {
     if (!selected) return null;
@@ -176,11 +178,41 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
           {selected ? "Bädd-inspektor" : "Ingen bädd vald"}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 4, lineHeight: 1.5 }}>
-          {selected
-            ? "Mått, jord och sol för den valda bädden."
-            : "Klicka på en bädd i ritningen för att se detaljer."}
+          {multiCount > 1
+            ? `${multiCount} bäddar valda — visar primär.`
+            : selected
+              ? "Mått, jord och sol för den valda bädden."
+              : "Klicka på en bädd i ritningen för att se detaljer."}
         </div>
       </div>
+
+      {selected && (
+        <section>
+          <div style={sectionTitleStyle}>Identitet</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <input
+              type="text"
+              placeholder="Namn (t.ex. Tomater 2026)"
+              value={selected.label ?? ""}
+              onChange={(e) =>
+                dispatch({ type: "setRectMeta", id: selected.id, label: e.target.value })
+              }
+              data-pp-input
+              style={{ fontSize: 13, padding: "5px 8px" }}
+            />
+            <textarea
+              placeholder="Anteckningar…"
+              value={selected.notes ?? ""}
+              onChange={(e) =>
+                dispatch({ type: "setRectMeta", id: selected.id, notes: e.target.value })
+              }
+              data-pp-input
+              rows={3}
+              style={{ fontSize: 12.5, padding: "5px 8px", resize: "vertical", fontFamily: "var(--font-sans)" }}
+            />
+          </div>
+        </section>
+      )}
 
       {selected && (
         <section>
