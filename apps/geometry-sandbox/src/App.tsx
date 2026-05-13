@@ -134,7 +134,7 @@ export function App() {
           overlappingIds={overlappingIds}
           theme={theme}
         />
-        <SidePanel state={state} bedDepth={bedDepth} />
+        <SidePanel state={state} bedDepth={bedDepth} dispatch={dispatch} />
       </div>
     </div>
   );

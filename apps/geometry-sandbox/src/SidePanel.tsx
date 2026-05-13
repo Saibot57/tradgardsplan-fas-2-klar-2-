@@ -6,14 +6,16 @@
  * preview). The two are never collapsed into a shared state field.
  */
 
-import { useMemo } from "react";
+import { useMemo, type Dispatch } from "react";
 import {
   bedSoilVolumeLitres,
   bedSunHours,
   rectAreaM2,
   type Rect,
 } from "@kolonitradgard/spatial-core";
-import type { SandboxState } from "./state.js";
+import { MIN_RECT_DIMENSION_MM, type Action, type SandboxState } from "./state.js";
+import type { HistoryAction } from "./history.js";
+import { IconTrash } from "./icons.js";
 import { fmtInt, fmtNum } from "./format.js";
 
 // Midsummer near Landskrona — fixed reference date for aggregate analysis.
@@ -22,6 +24,7 @@ const REFERENCE_DATE = new Date(2025, 5, 21);
 interface Props {
   state: SandboxState;
   bedDepth: number;
+  dispatch: Dispatch<Action | HistoryAction>;
 }
 
 const panelStyle: React.CSSProperties = {
@@ -82,7 +85,51 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export function SidePanel({ state, bedDepth }: Props) {
+const boundaryInputStyle: React.CSSProperties = {
+  width: 88,
+  textAlign: "right",
+  fontSize: 13,
+};
+
+function BoundaryNumberRow({
+  label,
+  value,
+  unit,
+  step,
+  min,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  step: number;
+  min?: number;
+  onCommit: (next: number) => void;
+}) {
+  return (
+    <div style={rowStyle}>
+      <div style={rowLabelStyle}>{label}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+        <input
+          type="number"
+          value={value}
+          step={step}
+          {...(min !== undefined ? { min } : {})}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) onCommit(n);
+          }}
+          data-pp-input
+          data-mono="true"
+          style={boundaryInputStyle}
+        />
+        <span style={{ ...unitStyle, fontSize: 12.5 }}>{unit}</span>
+      </div>
+    </div>
+  );
+}
+
+export function SidePanel({ state, bedDepth, dispatch }: Props) {
   const selected: Rect | undefined = state.rectangles.find(
     (r) => r.id === state.selectedId,
   );
@@ -212,6 +259,91 @@ export function SidePanel({ state, bedDepth }: Props) {
       )}
 
       <div style={{ height: 1, background: "var(--line-1)" }} />
+
+      <section>
+        <div style={sectionTitleStyle}>Tomtgräns</div>
+        {plot ? (
+          <>
+            <BoundaryNumberRow
+              label="Bredd"
+              value={plot.width}
+              unit="mm"
+              step={100}
+              min={MIN_RECT_DIMENSION_MM}
+              onCommit={(w) =>
+                dispatch({
+                  type: "setPlotBoundary",
+                  rect: { ...plot, width: Math.max(MIN_RECT_DIMENSION_MM, Math.round(w)) },
+                })
+              }
+            />
+            <BoundaryNumberRow
+              label="Höjd"
+              value={plot.height}
+              unit="mm"
+              step={100}
+              min={MIN_RECT_DIMENSION_MM}
+              onCommit={(h) =>
+                dispatch({
+                  type: "setPlotBoundary",
+                  rect: { ...plot, height: Math.max(MIN_RECT_DIMENSION_MM, Math.round(h)) },
+                })
+              }
+            />
+            <BoundaryNumberRow
+              label="X (centrum)"
+              value={plot.cx}
+              unit="mm"
+              step={100}
+              onCommit={(cx) =>
+                dispatch({
+                  type: "setPlotBoundary",
+                  rect: { ...plot, cx: Math.round(cx) },
+                })
+              }
+            />
+            <BoundaryNumberRow
+              label="Y (centrum)"
+              value={plot.cy}
+              unit="mm"
+              step={100}
+              onCommit={(cy) =>
+                dispatch({
+                  type: "setPlotBoundary",
+                  rect: { ...plot, cy: Math.round(cy) },
+                })
+              }
+            />
+            <BoundaryNumberRow
+              label="Rotation"
+              value={Number(plot.rotationDeg.toFixed(1))}
+              unit="°"
+              step={1}
+              onCommit={(deg) =>
+                dispatch({
+                  type: "setPlotBoundary",
+                  rect: { ...plot, rotationDeg: deg },
+                })
+              }
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+              <button
+                data-pp-btn
+                data-variant="ghost"
+                onClick={() => dispatch({ type: "setPlotBoundary", rect: null })}
+                title="Ta bort tomtgränsen"
+              >
+                <IconTrash size={13} /> Ta bort tomt
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.5 }}>
+            Ingen tomt definierad. Tryck på <strong style={{ color: "var(--ink-1)" }}>Tomt</strong>{" "}
+            i verktygsfältet för att lägga till en yttre rektangel.
+          </div>
+        )}
+      </section>
 
       <section>
         <div style={sectionTitleStyle}>Sammanställning</div>
