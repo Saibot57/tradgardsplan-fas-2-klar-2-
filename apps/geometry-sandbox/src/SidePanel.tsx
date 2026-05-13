@@ -10,7 +10,13 @@ import { useMemo, type Dispatch } from "react";
 import {
   bedSoilVolumeLitres,
   bedSunHours,
+  getKind,
+  KIND_RULES,
+  OBJECT_KINDS,
   rectAreaM2,
+  rectContainedIn,
+  type Containment,
+  type ObjectKind,
   type Rect,
 } from "@kolonitradgard/spatial-core";
 import { MIN_RECT_DIMENSION_MM, type Action, type SandboxState } from "./state.js";
@@ -20,6 +26,31 @@ import { fmtInt, fmtNum } from "./format.js";
 
 // Midsummer near Landskrona — fixed reference date for aggregate analysis.
 const REFERENCE_DATE = new Date(2025, 5, 21);
+
+const KIND_LABEL: Readonly<Record<ObjectKind, string>> = {
+  bed: "Bädd",
+  building: "Byggnad",
+  hedge: "Häck",
+  surface: "Underlag",
+};
+
+const KIND_LABEL_PLURAL: Readonly<Record<ObjectKind, string>> = {
+  bed: "Bäddar",
+  building: "Byggnader",
+  hedge: "Häckar",
+  surface: "Underlag",
+};
+
+function containmentLabel(c: Containment): { text: string; color: string } {
+  switch (c) {
+    case "inside":
+      return { text: "Innanför tomten", color: "var(--state-success)" };
+    case "partial":
+      return { text: "Delvis utanför tomten", color: "var(--accent-sun)" };
+    case "outside":
+      return { text: "Utanför tomten", color: "var(--state-danger)" };
+  }
+}
 
 interface Props {
   state: SandboxState;
@@ -136,10 +167,12 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
   const selected: Rect | undefined = state.rectangles.find(
     (r) => r.id === primaryId,
   );
+  const selectedKind = selected ? getKind(selected) : null;
   const multiCount = state.selectedIds.length;
 
   const sunHoursValue = useMemo(() => {
     if (!selected) return null;
+    if (getKind(selected) !== "bed") return null;
     const others = state.rectangles.filter((r) => r.id !== selected.id);
     return bedSunHours(
       selected,
@@ -155,12 +188,37 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
     state.plot.northRotationDeg,
   ]);
 
-  const totalArea = state.rectangles.reduce((s, r) => s + rectAreaM2(r), 0);
-  const totalSoil = state.rectangles.reduce(
-    (s, r) => s + bedSoilVolumeLitres(r, bedDepth),
-    0,
-  );
   const plot = state.plot.boundaryRect;
+
+  /** Per-typ-grupperad sammanställning. */
+  const summary = useMemo(() => {
+    const totals: Record<ObjectKind, { count: number; areaM2: number; soilL: number }> = {
+      bed:      { count: 0, areaM2: 0, soilL: 0 },
+      building: { count: 0, areaM2: 0, soilL: 0 },
+      hedge:    { count: 0, areaM2: 0, soilL: 0 },
+      surface:  { count: 0, areaM2: 0, soilL: 0 },
+    };
+    let outsideCount = 0;
+    for (const r of state.rectangles) {
+      const k = getKind(r);
+      totals[k].count += 1;
+      totals[k].areaM2 += rectAreaM2(r);
+      totals[k].soilL += bedSoilVolumeLitres(r, bedDepth);
+      if (plot && rectContainedIn(r, plot) === "outside") outsideCount += 1;
+    }
+    return { totals, outsideCount };
+  }, [state.rectangles, bedDepth, plot]);
+
+  const totalArea =
+    summary.totals.bed.areaM2 +
+    summary.totals.building.areaM2 +
+    summary.totals.hedge.areaM2 +
+    summary.totals.surface.areaM2;
+
+  const selectedContainment: Containment | null = useMemo(() => {
+    if (!selected || !plot) return null;
+    return rectContainedIn(selected, plot);
+  }, [selected, plot]);
 
   return (
     <aside style={panelStyle}>
@@ -175,14 +233,14 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
             fontWeight: 500,
           }}
         >
-          {selected ? "Bädd-inspektor" : "Ingen bädd vald"}
+          {selected ? "Objektinspektor" : "Inget objekt valt"}
         </div>
         <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 4, lineHeight: 1.5 }}>
           {multiCount > 1
-            ? `${multiCount} bäddar valda — visar primär.`
+            ? `${multiCount} objekt valda — visar primär.`
             : selected
-              ? "Mått, jord och sol för den valda bädden."
-              : "Klicka på en bädd i ritningen för att se detaljer."}
+              ? `${KIND_LABEL[getKind(selected)]} — mått och relevanta beräkningar.`
+              : "Klicka på ett objekt i ritningen för att se detaljer."}
         </div>
       </div>
 
@@ -210,6 +268,23 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
               rows={3}
               style={{ fontSize: 12.5, padding: "5px 8px", resize: "vertical", fontFamily: "var(--font-sans)" }}
             />
+            <div style={{ display: "flex", gap: 4 }} role="radiogroup" aria-label="Objekttyp">
+              {OBJECT_KINDS.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedKind === k}
+                  data-pp-btn
+                  data-variant={selectedKind === k ? "primary" : "ghost"}
+                  onClick={() => dispatch({ type: "setRectKind", id: selected.id, kind: k })}
+                  style={{ flex: 1, fontSize: 12, padding: "4px 6px" }}
+                  title={`Byt typ till ${KIND_LABEL[k]}`}
+                >
+                  {KIND_LABEL[k]}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       )}
@@ -244,18 +319,30 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
             value={<>({fmtInt(selected.cx)}, {fmtInt(selected.cy)})</>}
           />
           <Row label="Rotation" value={<>{fmtNum(selected.rotationDeg, 1)}°</>} />
-          <Row
-            label="Vägghöjd"
-            value={
-              selected.wallHeight > 0 ? (
-                <>
-                  {fmtInt(selected.wallHeight)} <span style={unitStyle}>mm</span>
-                </>
-              ) : (
-                "—"
-              )
-            }
-          />
+          {selectedKind && (selectedKind === "building" || selectedKind === "hedge") && (
+            <Row
+              label="Vägghöjd"
+              value={
+                selected.wallHeight > 0 ? (
+                  <>
+                    {fmtInt(selected.wallHeight)} <span style={unitStyle}>mm</span>
+                  </>
+                ) : (
+                  "—"
+                )
+              }
+            />
+          )}
+          {selectedContainment && (
+            <Row
+              label="Tomt"
+              value={
+                <span style={{ color: containmentLabel(selectedContainment).color }}>
+                  {containmentLabel(selectedContainment).text}
+                </span>
+              }
+            />
+          )}
         </section>
       )}
 
@@ -270,19 +357,21 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
               </>
             }
           />
-          <Row
-            label={`Jordvolym (${bedDepth} mm)`}
-            value={
-              <>
-                {fmtInt(bedSoilVolumeLitres(selected, bedDepth))}{" "}
-                <span style={unitStyle}>L</span>
-              </>
-            }
-          />
+          {selectedKind && KIND_RULES[selectedKind].hasSoil && (
+            <Row
+              label={`Jordvolym (${bedDepth} mm)`}
+              value={
+                <>
+                  {fmtInt(bedSoilVolumeLitres(selected, bedDepth))}{" "}
+                  <span style={unitStyle}>L</span>
+                </>
+              }
+            />
+          )}
         </section>
       )}
 
-      {selected && (
+      {selected && selectedKind === "bed" && (
         <section>
           <div style={sectionTitleStyle}>Soltimmar</div>
           <div
@@ -393,7 +482,6 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
 
       <section>
         <div style={sectionTitleStyle}>Sammanställning</div>
-        <Row label="Bäddar" value={state.rectangles.length} />
         <Row
           label="Tomt"
           value={
@@ -407,6 +495,29 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
             )
           }
         />
+        {OBJECT_KINDS.map((k) => {
+          const t = summary.totals[k];
+          if (t.count === 0) return null;
+          return (
+            <Row
+              key={k}
+              label={KIND_LABEL_PLURAL[k]}
+              value={
+                <>
+                  {t.count} · {fmtNum(t.areaM2, 2)}
+                  <span style={unitStyle}> m²</span>
+                  {KIND_RULES[k].hasSoil && (
+                    <>
+                      {" · "}
+                      {fmtInt(t.soilL)}
+                      <span style={unitStyle}> L</span>
+                    </>
+                  )}
+                </>
+              }
+            />
+          );
+        })}
         <Row
           label="Σ Area"
           value={
@@ -415,14 +526,16 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
             </>
           }
         />
-        <Row
-          label="Σ Jord"
-          value={
-            <>
-              {fmtInt(totalSoil)} <span style={unitStyle}>L</span>
-            </>
-          }
-        />
+        {plot && summary.outsideCount > 0 && (
+          <Row
+            label="Utanför tomt"
+            value={
+              <span style={{ color: "var(--state-danger)" }}>
+                {summary.outsideCount} objekt
+              </span>
+            }
+          />
+        )}
       </section>
     </aside>
   );

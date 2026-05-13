@@ -1,7 +1,8 @@
 import type { PlotConfig, Rect } from "./types.js";
+import { isObjectKind } from "./kind.js";
 
 /** Current scene format version. Bump when schema changes. */
-export const SCENE_VERSION = 2;
+export const SCENE_VERSION = 3;
 
 export interface SceneV1 {
   version: 1;
@@ -24,8 +25,19 @@ export interface SceneV2 {
   rectangles: Rect[];
 }
 
+/**
+ * v3 — additivt: `Rect.kind` kan anges (ADR-009). Saknad `kind` tolkas
+ * som "bed" via `getKind()`. Strukturellt identiskt med v2.
+ */
+export interface SceneV3 {
+  version: 3;
+  plot: PlotConfig;
+  boundary?: Rect | null;
+  rectangles: Rect[];
+}
+
 /** Union type for all known versions — utökas vid framtida migrering. */
-export type Scene = SceneV1 | SceneV2;
+export type Scene = SceneV1 | SceneV2 | SceneV3;
 
 export class SceneParseError extends Error {
   constructor(message: string, public readonly raw: unknown) {
@@ -47,6 +59,8 @@ function canonicalizeRect(r: Rect): Rect {
   // exactOptionalPropertyTypes: assigna bara om värdet är en icke-tom sträng
   if (typeof r.label === "string" && r.label.length > 0) out.label = r.label;
   if (typeof r.notes === "string" && r.notes.length > 0) out.notes = r.notes;
+  // kind utelämnas om värdet är default ("bed") — kompakt JSON och V2-kompatibel form
+  if (r.kind !== undefined && r.kind !== "bed") out.kind = r.kind;
   return out;
 }
 
@@ -55,9 +69,9 @@ export function serializeScene(state: {
   plot: PlotConfig;
   boundary?: Rect | null;
   rectangles: Rect[];
-}): SceneV2 {
+}): SceneV3 {
   return {
-    version: 2,
+    version: 3,
     plot: {
       northRotationDeg: Math.round(state.plot.northRotationDeg),
       location: state.plot.location,
@@ -75,7 +89,7 @@ export function parseScene(raw: unknown): Scene {
 
   const obj = raw as Record<string, unknown>;
 
-  if (obj.version !== 1 && obj.version !== 2) {
+  if (obj.version !== 1 && obj.version !== 2 && obj.version !== 3) {
     throw new SceneParseError(
       `Unsupported or missing version: ${obj.version}`,
       raw,
@@ -130,19 +144,29 @@ function validateRect(rect: Rect, raw: unknown): void {
   if (rect.notes !== undefined && typeof rect.notes !== "string") {
     throw new SceneParseError("notes must be a string when present", raw);
   }
+  // kind (v3) — om present måste vara ett känt enum-värde.
+  if (rect.kind !== undefined && !isObjectKind(rect.kind)) {
+    throw new SceneParseError(
+      `Invalid kind: ${String(rect.kind)}`,
+      raw,
+    );
+  }
 }
 
 /**
- * Migrate older scene versions to current (v2).
- * v1 → v2: identity (label/notes är optional, behöver inte tillsättas).
+ * Migrate older scene versions to current (v3).
+ * v1 → v2: identity (label/notes är optional).
+ * v2 → v3: identity (kind är optional och defaultar till "bed" via getKind()).
  */
-export function migrateScene(scene: Scene): SceneV2 {
-  if (scene.version === 2) return scene;
-  // v1 → v2: bara version-bumpning. label/notes är optional och saknas legitimt.
+export function migrateScene(scene: Scene): SceneV3 {
+  if (scene.version === 3) return scene;
+  // v1/v2 → v3: bara version-bumpning. Optional fields (label/notes/kind)
+  // saknas legitimt och tolkas via default-helpers (getKind() etc.).
   return {
-    version: 2,
+    version: 3,
     plot: scene.plot,
     ...(scene.boundary != null ? { boundary: scene.boundary } : { boundary: null }),
     rectangles: scene.rectangles,
   };
 }
+

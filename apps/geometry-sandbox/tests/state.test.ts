@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { makeInitialState, SUN_HOUR_MIN, SUN_HOUR_MAX } from "../src/state.js";
+import { makeInitialState, nextId, reducer, SUN_HOUR_MIN, SUN_HOUR_MAX } from "../src/state.js";
+import { getKind, type Rect } from "@kolonitradgard/spatial-core";
 
 function hourOf(iso: string): number {
   const d = new Date(iso);
@@ -40,5 +41,43 @@ describe("makeInitialState — kontextuell tidsmedvetenhet", () => {
     const state = makeInitialState();
     expect(state.sun.dateIso).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(state.rectangles.length).toBeGreaterThan(0);
+  });
+});
+
+describe("reducer — kind på Rect (ADR-009)", () => {
+  function buildingRect(id: string): Rect {
+    return {
+      id,
+      cx: 1000, cy: 1000,
+      width: 2000, height: 2000,
+      rotationDeg: 0,
+      wallHeight: 2400,
+      kind: "building",
+    };
+  }
+
+  it("addRect bevarar kind när angiven", () => {
+    const start = makeInitialState();
+    const next = reducer(start, { type: "addRect", rect: buildingRect(nextId()) });
+    const added = next.rectangles[next.rectangles.length - 1]!;
+    expect(getKind(added)).toBe("building");
+  });
+
+  it("setRectKind byter typ på vald rect", () => {
+    const start = makeInitialState();
+    const id = start.rectangles[0]!.id;
+    const next = reducer(start, { type: "setRectKind", id, kind: "hedge" });
+    const updated = next.rectangles.find((r) => r.id === id)!;
+    expect(getKind(updated)).toBe("hedge");
+  });
+
+  it("setRectKind till 'bed' utelämnar kind-fältet (default-form)", () => {
+    const start = makeInitialState();
+    const id = start.rectangles[0]!.id;
+    const withBuilding = reducer(start, { type: "setRectKind", id, kind: "building" });
+    const backToBed = reducer(withBuilding, { type: "setRectKind", id, kind: "bed" });
+    const updated = backToBed.rectangles.find((r) => r.id === id)!;
+    expect(updated.kind).toBeUndefined();
+    expect(getKind(updated)).toBe("bed");
   });
 });

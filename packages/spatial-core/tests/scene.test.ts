@@ -28,9 +28,9 @@ describe("scene — serialize/parse roundtrip", () => {
     const serialized = serializeScene(state);
     const parsed = parseScene(serialized);
 
-    expect(parsed.version).toBe(2);
-    expect(parsed.rectangles[0].cx).toBe(1000);
-    expect(parsed.rectangles[0].width).toBe(300);
+    expect(parsed.version).toBe(3);
+    expect(parsed.rectangles[0]!.cx).toBe(1000);
+    expect(parsed.rectangles[0]!.width).toBe(300);
   });
 
   it("serialized coordinates are always integers", () => {
@@ -40,7 +40,7 @@ describe("scene — serialize/parse roundtrip", () => {
     };
     const serialized = serializeScene(state);
     expect(Number.isInteger(serialized.plot.northRotationDeg)).toBe(true);
-    expect(Number.isInteger(serialized.rectangles[0].cx)).toBe(true);
+    expect(Number.isInteger(serialized.rectangles[0]!.cx)).toBe(true);
   });
 });
 
@@ -118,31 +118,67 @@ describe("scene — boundary round-trip", () => {
 });
 
 describe("scene — migrateScene", () => {
-  it("migrateScene v1 → v2 bumps version", () => {
+  it("migrateScene v1 → v3 bumps version", () => {
     const v1 = { version: 1 as const, plot: validPlot, rectangles: [validRect] };
-    const v2 = migrateScene(v1);
-    expect(v2.version).toBe(2);
-    expect(v2.rectangles[0]?.cx).toBe(validRect.cx);
+    const v3 = migrateScene(v1);
+    expect(v3.version).toBe(3);
+    expect(v3.rectangles[0]?.cx).toBe(validRect.cx);
   });
 
-  it("migrateScene is identity for v2", () => {
-    const v2 = { version: 2 as const, plot: validPlot, rectangles: [] };
-    expect(migrateScene(v2)).toBe(v2);
+  it("migrateScene v2 → v3 bumps version", () => {
+    const v2 = { version: 2 as const, plot: validPlot, rectangles: [validRect] };
+    const v3 = migrateScene(v2);
+    expect(v3.version).toBe(3);
   });
 
-  it("migrateScene v1 → v2 bevarar boundary", () => {
+  it("migrateScene is identity for v3", () => {
+    const v3 = { version: 3 as const, plot: validPlot, rectangles: [] };
+    expect(migrateScene(v3)).toBe(v3);
+  });
+
+  it("migrateScene v1 → v3 bevarar boundary", () => {
     const boundary: Rect = {
       id: "plot-boundary",
       cx: 6000, cy: 5000, width: 12000, height: 8000,
       rotationDeg: 0, wallHeight: 0,
     };
     const v1 = { version: 1 as const, plot: validPlot, boundary, rectangles: [] };
-    const v2 = migrateScene(v1);
-    expect(v2.boundary?.id).toBe("plot-boundary");
+    const v3 = migrateScene(v1);
+    expect(v3.boundary?.id).toBe("plot-boundary");
   });
 });
 
-describe("scene v2 — label/notes", () => {
+describe("scene v3 — kind-fält", () => {
+  it("serializeScene bevarar kind när det är satt", () => {
+    const r: Rect = { ...validRect, kind: "building" };
+    const parsed = parseScene(serializeScene({ plot: validPlot, rectangles: [r] }));
+    expect(parsed.rectangles[0]?.kind).toBe("building");
+  });
+
+  it("serializeScene utelämnar kind när värdet är 'bed' (default)", () => {
+    const r: Rect = { ...validRect, kind: "bed" };
+    const s = serializeScene({ plot: validPlot, rectangles: [r] });
+    expect(s.rectangles[0]?.kind).toBeUndefined();
+  });
+
+  it("parseScene kastar på okänd kind", () => {
+    expect(() =>
+      parseScene({
+        version: 3,
+        plot: validPlot,
+        rectangles: [{ ...validRect, kind: "spaceship" }],
+      }),
+    ).toThrow(SceneParseError);
+  });
+
+  it("parseScene accepterar v2-fil utan kind", () => {
+    const v2 = { version: 2, plot: validPlot, rectangles: [validRect] };
+    const parsed = parseScene(v2);
+    expect(parsed.rectangles[0]?.kind).toBeUndefined();
+  });
+});
+
+describe("scene — label/notes (v2/v3)", () => {
   it("serializeScene bevarar label och notes", () => {
     const labelled: Rect = { ...validRect, label: "Tomater 2026", notes: "v.18" };
     const parsed = parseScene(serializeScene({ plot: validPlot, rectangles: [labelled] }));

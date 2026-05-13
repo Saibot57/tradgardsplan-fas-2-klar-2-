@@ -1,7 +1,7 @@
 import { useState, type Dispatch } from "react";
 import type { Action, SandboxState } from "./state.js";
 import { MIN_RECT_DIMENSION_MM, nextId } from "./state.js";
-import type { SunPosition } from "@kolonitradgard/spatial-core";
+import type { ObjectKind, SunPosition } from "@kolonitradgard/spatial-core";
 import type { HistoryAction } from "./history.js";
 import { TimeSlider } from "./TimeSlider.js";
 import { exportCanvasAsPng, loadSceneFromFile, saveScene } from "./io.js";
@@ -107,14 +107,34 @@ const valueStyle: React.CSSProperties = {
 };
 
 function formatCollisionStatus(overlap: number, touch: number): string {
-  if (overlap === 0 && touch === 0) return "Inga bäddar krockar";
+  if (overlap === 0 && touch === 0) return "Inga objekt krockar";
   const overlapLabel =
-    overlap === 0 ? "" : overlap === 1 ? "1 bädd krockar" : `${overlap} bäddar krockar`;
+    overlap === 0 ? "" : overlap === 1 ? "1 objekt krockar" : `${overlap} objekt krockar`;
   const touchLabel =
     touch === 0 ? "" : touch === 1 ? "1 snuddar" : `${touch} snuddar`;
   if (overlap > 0 && touch > 0) return `${overlapLabel} · ${touchLabel}`;
   return overlapLabel || touchLabel;
 }
+
+/** Default-mått (mm) per objekttyp för Lägg-till-popovern. */
+interface KindDefaults {
+  width: number;
+  height: number;
+  wallHeight: number;
+}
+export const KIND_DEFAULTS: Readonly<Record<ObjectKind, KindDefaults>> = {
+  bed:      { width: 1500, height: 800,  wallHeight: 0    },
+  building: { width: 3000, height: 2500, wallHeight: 2400 },
+  hedge:    { width: 3000, height: 500,  wallHeight: 1500 },
+  surface:  { width: 2000, height: 2000, wallHeight: 0    },
+};
+
+const KIND_LABELS: Readonly<Record<ObjectKind, string>> = {
+  bed: "Bädd",
+  building: "Byggnad",
+  hedge: "Häck",
+  surface: "Underlag",
+};
 
 export function Toolbar({
   state,
@@ -142,28 +162,48 @@ export function Toolbar({
   const multiCount = state.selectedIds.length;
 
   const [addOpen, setAddOpen] = useState(false);
-  const [addWidth, setAddWidth] = useState(1500);
-  const [addHeight, setAddHeight] = useState(800);
+  const [addKind, setAddKind] = useState<ObjectKind>("bed");
+  const [addWidth, setAddWidth] = useState(KIND_DEFAULTS.bed.width);
+  const [addHeight, setAddHeight] = useState(KIND_DEFAULTS.bed.height);
+  const [addWallHeight, setAddWallHeight] = useState(KIND_DEFAULTS.bed.wallHeight);
+
+  const onPickKind = (k: ObjectKind) => {
+    setAddKind(k);
+    setAddWidth(KIND_DEFAULTS[k].width);
+    setAddHeight(KIND_DEFAULTS[k].height);
+    setAddWallHeight(KIND_DEFAULTS[k].wallHeight);
+  };
 
   const commitAddRect = () => {
     const w = Math.max(MIN_RECT_DIMENSION_MM, Math.round(addWidth));
     const h = Math.max(MIN_RECT_DIMENSION_MM, Math.round(addHeight));
-    // Auto-offset så nya bäddar inte staplas på samma punkt: gå snett 600 mm
-    // åt höger/ned per existerande bädd, modulo en ruta.
+    const wh = Math.max(0, Math.round(addWallHeight));
+    // Auto-offset så nya objekt inte staplas på samma punkt: gå snett 600 mm
+    // åt höger/ned per existerande objekt, modulo en ruta.
     const offset = (state.rectangles.length % 8) * 600;
-    dispatch({
-      type: "addRect",
-      rect: {
-        id: nextId(),
-        cx: 5000 + offset,
-        cy: 5000 + offset,
-        width: w,
-        height: h,
-        rotationDeg: 0,
-        wallHeight: 0,
-      },
-    });
+    const rect: import("@kolonitradgard/spatial-core").Rect = {
+      id: nextId(),
+      cx: 5000 + offset,
+      cy: 5000 + offset,
+      width: w,
+      height: h,
+      rotationDeg: 0,
+      wallHeight: wh,
+    };
+    // Utelämna kind för default ("bed") — håll JSON minimal.
+    if (addKind !== "bed") rect.kind = addKind;
+    dispatch({ type: "addRect", rect });
     setAddOpen(false);
+  };
+
+  const commitLocation = (lat: number, lon: number) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    const clampedLat = Math.max(-90, Math.min(90, lat));
+    const clampedLon = Math.max(-180, Math.min(180, lon));
+    dispatch({
+      type: "setLocation",
+      loc: { latitudeDeg: clampedLat, longitudeDeg: clampedLon },
+    });
   };
 
   const sunAltDeg = (sun.altitudeRad * 180) / Math.PI;
@@ -217,17 +257,17 @@ export function Toolbar({
           data-pp-btn
           data-variant="primary"
           onClick={() => setAddOpen((v) => !v)}
-          title="Lägg till bädd"
+          title="Lägg till objekt"
           aria-expanded={addOpen}
         >
-          <IconPlus size={14} /> Lägg till bädd
+          <IconPlus size={14} /> Lägg till
         </button>
         <button
           data-pp-btn
           data-icon-only="true"
           disabled={!selected}
           onClick={() => dispatch({ type: "removeSelected" })}
-          title="Ta bort vald bädd"
+          title="Ta bort valt objekt"
         >
           <IconTrash size={14} />
         </button>
@@ -235,10 +275,14 @@ export function Toolbar({
 
       {addOpen && (
         <AddRectPopover
+          kind={addKind}
+          onKind={onPickKind}
           width={addWidth}
           height={addHeight}
+          wallHeight={addWallHeight}
           onWidth={setAddWidth}
           onHeight={setAddHeight}
+          onWallHeight={setAddWallHeight}
           onCancel={() => setAddOpen(false)}
           onConfirm={commitAddRect}
         />
@@ -473,6 +517,43 @@ export function Toolbar({
         <span style={{ ...labelStyle, marginLeft: -2 }}>N°</span>
       </div>
 
+      {/* Location (lat/lon) */}
+      <div style={sectionStyle}>
+        <span style={labelStyle}>Plats</span>
+        <input
+          type="number"
+          value={state.plot.location.latitudeDeg}
+          step={0.0001}
+          min={-90}
+          max={90}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) commitLocation(n, state.plot.location.longitudeDeg);
+          }}
+          data-pp-input
+          data-mono="true"
+          style={{ width: 84 }}
+          title="Latitud (°)"
+        />
+        <span style={{ ...labelStyle, marginLeft: -2 }}>lat</span>
+        <input
+          type="number"
+          value={state.plot.location.longitudeDeg}
+          step={0.0001}
+          min={-180}
+          max={180}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (Number.isFinite(n)) commitLocation(state.plot.location.latitudeDeg, n);
+          }}
+          data-pp-input
+          data-mono="true"
+          style={{ width: 84 }}
+          title="Longitud (°)"
+        />
+        <span style={{ ...labelStyle, marginLeft: -2 }}>lon</span>
+      </div>
+
       {/* Measurements */}
       <div style={sectionStyle}>
         <IconRuler size={14} style={{ color: "var(--ink-2)" }} />
@@ -538,22 +619,32 @@ export function Toolbar({
 }
 
 interface AddRectPopoverProps {
+  kind: ObjectKind;
+  onKind: (k: ObjectKind) => void;
   width: number;
   height: number;
+  wallHeight: number;
   onWidth: (w: number) => void;
   onHeight: (h: number) => void;
+  onWallHeight: (w: number) => void;
   onCancel: () => void;
   onConfirm: () => void;
 }
 
 function AddRectPopover({
+  kind,
+  onKind,
   width,
   height,
+  wallHeight,
   onWidth,
   onHeight,
+  onWallHeight,
   onCancel,
   onConfirm,
 }: AddRectPopoverProps) {
+  const showWallHeight = kind === "building" || kind === "hedge";
+  const orderedKinds: ObjectKind[] = ["bed", "building", "hedge", "surface"];
   return (
     <>
       <div
@@ -569,7 +660,7 @@ function AddRectPopover({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Ny bädd"
+        aria-label="Nytt objekt"
         onKeyDown={(e) => {
           if (e.key === "Escape") onCancel();
           if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") onConfirm();
@@ -588,59 +679,96 @@ function AddRectPopover({
           display: "flex",
           flexDirection: "column",
           gap: 12,
-          minWidth: 280,
+          minWidth: 300,
           fontFamily: "var(--font-sans)",
         }}
       >
-      <div
-        style={{
-          fontFamily: "var(--font-display)",
-          fontSize: 14,
-          color: "var(--ink-1)",
-          fontWeight: 500,
-        }}
-      >
-        Ny bädd
-      </div>
-      <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--ink-2)" }}>
-        <span style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>Bredd</span>
-        <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
-          <input
-            type="number"
-            value={width}
-            step={100}
-            min={MIN_RECT_DIMENSION_MM}
-            autoFocus
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              if (Number.isFinite(n)) onWidth(n);
-            }}
-            data-pp-input
-            data-mono="true"
-            style={{ width: 88, textAlign: "right", fontSize: 13 }}
-          />
-          <span style={{ color: "var(--ink-2)", fontSize: 12.5 }}>mm</span>
-        </span>
-      </label>
-      <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--ink-2)" }}>
-        <span style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>Höjd</span>
-        <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
-          <input
-            type="number"
-            value={height}
-            step={100}
-            min={MIN_RECT_DIMENSION_MM}
-            onChange={(e) => {
-              const n = Number(e.target.value);
-              if (Number.isFinite(n)) onHeight(n);
-            }}
-            data-pp-input
-            data-mono="true"
-            style={{ width: 88, textAlign: "right", fontSize: 13 }}
-          />
-          <span style={{ color: "var(--ink-2)", fontSize: 12.5 }}>mm</span>
-        </span>
-      </label>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 14,
+            color: "var(--ink-1)",
+            fontWeight: 500,
+          }}
+        >
+          Nytt objekt
+        </div>
+        <div style={{ display: "flex", gap: 4 }} role="radiogroup" aria-label="Objekttyp">
+          {orderedKinds.map((k) => (
+            <button
+              key={k}
+              type="button"
+              role="radio"
+              aria-checked={kind === k}
+              data-pp-btn
+              data-variant={kind === k ? "primary" : "ghost"}
+              onClick={() => onKind(k)}
+              style={{ flex: 1, fontSize: 12.5, padding: "5px 8px" }}
+            >
+              {KIND_LABELS[k]}
+            </button>
+          ))}
+        </div>
+        <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--ink-2)" }}>
+          <span style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>Bredd</span>
+          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+            <input
+              type="number"
+              value={width}
+              step={100}
+              min={MIN_RECT_DIMENSION_MM}
+              autoFocus
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isFinite(n)) onWidth(n);
+              }}
+              data-pp-input
+              data-mono="true"
+              style={{ width: 88, textAlign: "right", fontSize: 13 }}
+            />
+            <span style={{ color: "var(--ink-2)", fontSize: 12.5 }}>mm</span>
+          </span>
+        </label>
+        <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--ink-2)" }}>
+          <span style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>Höjd</span>
+          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+            <input
+              type="number"
+              value={height}
+              step={100}
+              min={MIN_RECT_DIMENSION_MM}
+              onChange={(e) => {
+                const n = Number(e.target.value);
+                if (Number.isFinite(n)) onHeight(n);
+              }}
+              data-pp-input
+              data-mono="true"
+              style={{ width: 88, textAlign: "right", fontSize: 13 }}
+            />
+            <span style={{ color: "var(--ink-2)", fontSize: 12.5 }}>mm</span>
+          </span>
+        </label>
+        {showWallHeight && (
+          <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, fontSize: 12.5, color: "var(--ink-2)" }}>
+            <span style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>Vägghöjd</span>
+            <span style={{ display: "inline-flex", alignItems: "baseline", gap: 4 }}>
+              <input
+                type="number"
+                value={wallHeight}
+                step={100}
+                min={0}
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  if (Number.isFinite(n)) onWallHeight(n);
+                }}
+                data-pp-input
+                data-mono="true"
+                style={{ width: 88, textAlign: "right", fontSize: 13 }}
+              />
+              <span style={{ color: "var(--ink-2)", fontSize: 12.5 }}>mm</span>
+            </span>
+          </label>
+        )}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
           <button data-pp-btn data-variant="ghost" onClick={onCancel}>
             Avbryt

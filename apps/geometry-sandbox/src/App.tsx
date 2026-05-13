@@ -32,6 +32,7 @@ const AUTO_COMMIT_ACTIONS: ReadonlySet<Action["type"]> = new Set<Action["type"]>
   "loadScene",
   "newScene",
   "setRectMeta",
+  "setRectKind",
   "duplicateSelected",
 ]);
 

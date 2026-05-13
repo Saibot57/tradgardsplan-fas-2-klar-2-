@@ -32,6 +32,15 @@ export interface AABB {
 }
 
 /**
+ * Trädgårdsobjekt-typ (ADR-009, scene v3).
+ *
+ * `kind` är valfri på Rect; saknas värdet tolkas objektet som "bed".
+ * Värdet `"wall"` slås medvetet ihop med `"building"` — vi särskiljer dem
+ * inte i v1.
+ */
+export type ObjectKind = "bed" | "building" | "hedge" | "surface";
+
+/**
  * The primary spatial object in v1: an oriented (rotated) rectangle.
  *
  * - Position is the *center* (cx, cy), not a corner.
@@ -56,6 +65,8 @@ export interface Rect {
   label?: string;
   /** Valfria fri-text-anteckningar (scene v2). */
   notes?: string;
+  /** Objekttyp (scene v3). Saknas == "bed". Se ADR-009. */
+  kind?: ObjectKind;
 }
 
 /** A geographic location. */

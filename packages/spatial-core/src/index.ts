@@ -8,3 +8,5 @@ export * from "./sun.js";
 export * from "./measure.js";
 export * from "./scene.js";
 export * from "./sunHours.js";
+export * from "./kind.js";
+export * from "./containment.js";

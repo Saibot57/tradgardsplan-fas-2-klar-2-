@@ -6,11 +6,11 @@
  * HttpAdapter utan att röra reducer eller App.
  */
 
-import type { SceneV2 } from "@kolonitradgard/spatial-core";
+import type { SceneV3 } from "@kolonitradgard/spatial-core";
 
 export interface ScenePersistence {
-  save(scene: SceneV2): Promise<void>;
-  load(): Promise<SceneV2 | null>;
+  save(scene: SceneV3): Promise<void>;
+  load(): Promise<SceneV3 | null>;
   clear(): Promise<void>;
   /** Mänskligt läsbar identifierare (för status-chip i UI). */
   readonly label: string;
@@ -35,7 +35,7 @@ export function localStorageAdapter(key: string = DEFAULT_KEY): ScenePersistence
       try {
         const raw = localStorage.getItem(key);
         if (!raw) return null;
-        return JSON.parse(raw) as SceneV2;
+        return JSON.parse(raw) as SceneV3;
       } catch {
         return null;
       }
@@ -52,7 +52,7 @@ export function localStorageAdapter(key: string = DEFAULT_KEY): ScenePersistence
 
 /** No-op adapter — för tester/SSR där localStorage saknas. */
 export function memoryAdapter(): ScenePersistence {
-  let store: SceneV2 | null = null;
+  let store: SceneV3 | null = null;
   return {
     label: "memory",
     async save(scene) {

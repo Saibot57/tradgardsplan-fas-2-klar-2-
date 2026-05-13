@@ -1,4 +1,10 @@
-import { roundToWorldMm, type Rect, type GeoLocation, type SceneV2 } from "@kolonitradgard/spatial-core";
+import {
+  roundToWorldMm,
+  type Rect,
+  type GeoLocation,
+  type ObjectKind,
+  type SceneV3,
+} from "@kolonitradgard/spatial-core";
 
 /** Minimum width/height for any Rect in the sandbox (precision_policy §7). */
 export const MIN_RECT_DIMENSION_MM = 100;
@@ -51,9 +57,10 @@ export type Action =
   | { type: "setPlotBoundary"; rect: Rect | null }
   | { type: "setSnapToGrid"; enabled: boolean }
   | { type: "setGridStep"; mm: number }
-  | { type: "loadScene"; scene: SceneV2 }
+  | { type: "loadScene"; scene: SceneV3 }
   | { type: "newScene" }
-  | { type: "setRectMeta"; id: string; label?: string; notes?: string };
+  | { type: "setRectMeta"; id: string; label?: string; notes?: string }
+  | { type: "setRectKind"; id: string; kind: ObjectKind };
 
 let _id = 0;
 export const nextId = (): string => `rect-${++_id}`;
@@ -319,6 +326,18 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
             if (action.notes === "") delete next.notes;
             else next.notes = action.notes;
           }
+          return next;
+        }),
+      };
+
+    case "setRectKind":
+      return {
+        ...state,
+        rectangles: state.rectangles.map((r) => {
+          if (r.id !== action.id) return r;
+          const next: Rect = { ...r, kind: action.kind };
+          // Håll JSON minimal: "bed" är default och sparas som frånvaro.
+          if (action.kind === "bed") delete next.kind;
           return next;
         }),
       };
