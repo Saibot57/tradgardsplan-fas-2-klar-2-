@@ -18,12 +18,14 @@ import {
   type ResizeHandle,
 } from "./Handles.js";
 import type { HistoryAction } from "./history.js";
+import { readCanvasPalette, type CanvasPalette } from "./palette.js";
 
 interface Props {
   state: SandboxState;
   dispatch: Dispatch<Action | HistoryAction>;
   sun: SunPosition;
   overlappingIds: Set<string>;
+  theme: "light" | "dark";
 }
 
 /** Hit-test */
@@ -46,7 +48,7 @@ type DragMode =
   | { kind: "resize"; handle: ResizeHandle; oldRect: Rect; rectId: string }
   | { kind: "rotate"; oldRect: Rect; rectId: string };
 
-export function Canvas({ state, dispatch, sun, overlappingIds }: Props) {
+export function Canvas({ state, dispatch, sun, overlappingIds, theme }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -71,24 +73,26 @@ export function Canvas({ state, dispatch, sun, overlappingIds }: Props) {
     const ctx = canvas.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+    const palette = readCanvasPalette();
+
     // Background
-    ctx.fillStyle = "#262626";
+    ctx.fillStyle = palette.bgCanvas;
     ctx.fillRect(0, 0, w, h);
 
     // World grid
-    drawGrid(ctx, w, h, state.viewport);
+    drawGrid(ctx, w, h, state.viewport, palette);
 
     // Plot boundary (if defined)
     if (state.plot.boundaryRect) {
-      drawPlotBoundary(ctx, state.plot.boundaryRect, state.viewport);
+      drawPlotBoundary(ctx, state.plot.boundaryRect, state.viewport, palette);
     }
 
     // Compass — uses northRotationDeg (ADR-006)
-    drawCompass(ctx, w, h, state.plot.northRotationDeg);
+    drawCompass(ctx, w, palette, state.plot.northRotationDeg);
 
     // Shadows
     if (state.showShadows) {
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.fillStyle = palette.shadowCanvas;
       for (const rect of state.rectangles) {
         const poly = projectShadow(rect, sun, state.plot.northRotationDeg);
         if (!poly) continue;
@@ -122,29 +126,35 @@ export function Canvas({ state, dispatch, sun, overlappingIds }: Props) {
       ctx.closePath();
 
       ctx.fillStyle = isOverlap
-        ? "rgba(255,80,80,0.35)"
+        ? palette.stateDangerFill
         : isWall
-          ? "rgba(150,120,80,0.55)"
-          : "rgba(120,180,120,0.45)";
+          ? palette.accentWallFill
+          : palette.accentBedFill;
       ctx.fill();
 
       ctx.lineWidth = isSelected ? 2 : 1;
-      ctx.strokeStyle = isOverlap ? "#ff6464" : isSelected ? "#ffd166" : "#aaa";
+      ctx.strokeStyle = isOverlap
+        ? palette.stateDanger
+        : isSelected
+          ? palette.accentSun
+          : isWall
+            ? palette.accentWall
+            : palette.accentBed;
       ctx.stroke();
 
       // Center marker
       const center = worldToScreen({ x: rect.cx, y: rect.cy }, state.viewport);
-      ctx.fillStyle = "#fff";
+      ctx.fillStyle = palette.centerDot;
       ctx.beginPath();
       ctx.arc(center.x, center.y, 2, 0, Math.PI * 2);
       ctx.fill();
 
       // Label
-      ctx.fillStyle = "#ddd";
-      ctx.font = "11px sans-serif";
+      ctx.fillStyle = palette.labelText;
+      ctx.font = "11px var(--font-mono, ui-monospace, Menlo, monospace)";
       ctx.fillText(
-        `${rect.id} ${rect.width}×${rect.height}mm ${rect.rotationDeg.toFixed(0)}°${
-          isWall ? ` H=${rect.wallHeight}mm` : ""
+        `${rect.id}  ${rect.width}×${rect.height} mm  ${rect.rotationDeg.toFixed(0)}°${
+          isWall ? `  H=${rect.wallHeight}` : ""
         }`,
         center.x + 6,
         center.y - 6,
@@ -157,17 +167,17 @@ export function Canvas({ state, dispatch, sun, overlappingIds }: Props) {
       const selected = state.rectangles.find((r) => r.id === state.selectedId);
       if (selected) {
         const c = worldToScreen({ x: selected.cx, y: selected.cy }, state.viewport);
-        ctx.fillStyle = "#fff";
-        ctx.font = "bold 13px sans-serif";
+        ctx.fillStyle = palette.measurementText;
+        ctx.font = "600 13px var(--font-mono, ui-monospace, Menlo, monospace)";
         ctx.fillText(`${selected.width} × ${selected.height} mm`, c.x + 12, c.y - 20);
       }
     }
 
     // Handles for selected rect (drawn last so they sit on top)
     if (selectedRect) {
-      drawHandles(ctx, selectedRect, state.viewport);
+      drawHandles(ctx, selectedRect, state.viewport, palette);
     }
-  }, [state, sun, overlappingIds]);
+  }, [state, sun, overlappingIds, theme]);
 
   // Pointer interactions
   const onPointerDown = (e: React.PointerEvent) => {
@@ -346,12 +356,13 @@ function drawGrid(
   w: number,
   h: number,
   vp: { panX: number; panY: number; pixelsPerMm: number },
+  palette: CanvasPalette,
 ) {
   const stepMm = 1000;
   const stepPx = stepMm * vp.pixelsPerMm;
   if (stepPx < 4) return;
 
-  ctx.strokeStyle = "#333";
+  ctx.strokeStyle = palette.grid;
   ctx.lineWidth = 1;
   ctx.beginPath();
 
@@ -373,11 +384,12 @@ function drawPlotBoundary(
   ctx: CanvasRenderingContext2D,
   rect: Rect,
   vp: { panX: number; panY: number; pixelsPerMm: number },
+  palette: CanvasPalette,
 ) {
   const corners = rectCorners(rect);
   const sc = corners.map((c) => worldToScreen(c, vp));
 
-  ctx.strokeStyle = "#ffd166";
+  ctx.strokeStyle = palette.accentSun;
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 3]);
   ctx.beginPath();
@@ -394,7 +406,7 @@ function drawPlotBoundary(
 function drawCompass(
   ctx: CanvasRenderingContext2D,
   w: number,
-  _h: number,
+  palette: CanvasPalette,
   northRotationDeg: number = 0,
 ) {
   const cx = w - 50;
@@ -405,16 +417,16 @@ function drawCompass(
   ctx.translate(cx, cy);
   ctx.rotate((northRotationDeg * Math.PI) / 180);
 
-  ctx.strokeStyle = "#888";
-  ctx.fillStyle = "#888";
+  ctx.strokeStyle = palette.ink2;
+  ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.arc(0, 0, r, 0, Math.PI * 2);
   ctx.stroke();
 
-  ctx.font = "11px sans-serif";
-  ctx.fillStyle = "#ff8888";
+  ctx.font = "11px var(--font-mono, ui-monospace, Menlo, monospace)";
+  ctx.fillStyle = palette.compassN;
   ctx.fillText("N", -4, -r + 12);
-  ctx.fillStyle = "#ddd";
+  ctx.fillStyle = palette.ink1;
   ctx.fillText("S", -4, r - 4);
   ctx.fillText("E", r - 10, 4);
   ctx.fillText("W", -r + 2, 4);

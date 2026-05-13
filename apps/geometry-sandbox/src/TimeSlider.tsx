@@ -39,6 +39,24 @@ function formatHourLabel(decimalHour: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 
+const labelStyle: React.CSSProperties = {
+  fontFamily: "var(--font-sans)",
+  fontSize: "var(--text-xs)" as unknown as number,
+  color: "var(--ink-2)",
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  fontWeight: 500,
+};
+
+const readoutStyle: React.CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontVariantNumeric: "tabular-nums",
+  fontSize: 13,
+  color: "var(--ink-1)",
+  minWidth: 44,
+  textAlign: "right",
+};
+
 export function TimeSlider({ dateIso, onChange }: Props) {
   const current = new Date(dateIso);
   const hour = Math.min(HOUR_MAX, Math.max(HOUR_MIN, hourFromDate(current)));
@@ -59,21 +77,16 @@ export function TimeSlider({ dateIso, onChange }: Props) {
 
   return (
     <>
-      <span style={{ color: "#aaa", fontSize: 12 }}>Datum</span>
+      <span style={labelStyle}>Datum</span>
       <input
         type="date"
         value={dateValue}
         onChange={onDate}
-        style={{
-          width: 130,
-          background: "#111",
-          color: "#eee",
-          border: "1px solid #444",
-          padding: 3,
-          fontSize: 12,
-        }}
+        data-pp-input
+        data-mono="true"
+        style={{ width: 134 }}
       />
-      <span style={{ color: "#aaa", fontSize: 12 }}>Soltid</span>
+      <span style={labelStyle}>Soltid</span>
       <input
         type="range"
         min={HOUR_MIN}
@@ -81,12 +94,11 @@ export function TimeSlider({ dateIso, onChange }: Props) {
         step={HOUR_STEP}
         value={hour}
         onChange={onHour}
+        data-pp-input
         style={{ width: 140 }}
         title="Tidpunkt för skuggförhandsgranskning (06:00–20:00)"
       />
-      <span style={{ color: "#ddd", fontSize: 12, minWidth: 44, textAlign: "right" }}>
-        {formatHourLabel(hour)}
-      </span>
+      <span style={readoutStyle}>{formatHourLabel(hour)}</span>
     </>
   );
 }

@@ -5,6 +5,26 @@ import type { SunPosition } from "@kolonitradgard/spatial-core";
 import type { HistoryAction } from "./history.js";
 import { TimeSlider } from "./TimeSlider.js";
 import { loadSceneFromFile, saveScene } from "./io.js";
+import { fmtInt, fmtNum } from "./format.js";
+import {
+  IconCheck,
+  IconCompass,
+  IconFolderOpen,
+  IconGrid,
+  IconLayers,
+  IconMoon,
+  IconPlus,
+  IconRotateCCW,
+  IconRotateCW,
+  IconRuler,
+  IconSave,
+  IconSquare,
+  IconSun,
+  IconTrash,
+  IconTriangleAlert,
+  IconUndo,
+  IconRedo,
+} from "./icons.js";
 
 interface Props {
   state: SandboxState;
@@ -19,33 +39,55 @@ interface Props {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
 }
-
-const btn: React.CSSProperties = {
-  background: "#2a2a2a",
-  color: "#eee",
-  border: "1px solid #444",
-  padding: "6px 10px",
-  borderRadius: 4,
-  cursor: "pointer",
-  fontSize: 13,
-};
 
 const sectionStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: 8,
-  padding: "0 12px",
-  borderRight: "1px solid #333",
+  gap: 6,
+  padding: "0 14px",
+  height: "100%",
+  borderRight: "1px solid var(--line-1)",
 };
 
-const inputStyle: React.CSSProperties = {
-  width: 70,
-  background: "#111",
-  color: "#eee",
-  border: "1px solid #444",
-  padding: 3,
+const lastSectionStyle: React.CSSProperties = {
+  ...sectionStyle,
+  borderRight: "none",
 };
+
+const labelStyle: React.CSSProperties = {
+  fontFamily: "var(--font-sans)",
+  fontSize: 12,
+  color: "var(--ink-2)",
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  fontWeight: 500,
+};
+
+const inlineLabelStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  fontFamily: "var(--font-sans)",
+  fontSize: 12.5,
+  color: "var(--ink-1)",
+  cursor: "pointer",
+};
+
+const valueStyle: React.CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontVariantNumeric: "tabular-nums",
+  fontSize: 12.5,
+  color: "var(--ink-1)",
+};
+
+function formatCollisionStatus(n: number): string {
+  if (n === 0) return "Inga bäddar krockar";
+  if (n === 1) return "1 bädd krockar";
+  return `${n} bäddar krockar`;
+}
 
 export function Toolbar({
   state,
@@ -60,6 +102,8 @@ export function Toolbar({
   onRedo,
   canUndo,
   canRedo,
+  theme,
+  onToggleTheme,
 }: Props) {
   const selected = state.rectangles.find((r) => r.id === state.selectedId);
 
@@ -77,77 +121,120 @@ export function Toolbar({
       },
     });
 
+  const sunAltDeg = (sun.altitudeRad * 180) / Math.PI;
+  const sunAzDeg = (sun.azimuthRad * 180) / Math.PI;
+
   return (
     <div
       style={{
         display: "flex",
         alignItems: "center",
-        background: "#1e1e1e",
-        borderBottom: "1px solid #333",
-        height: 44,
+        background: "var(--bg-surface)",
+        borderBottom: "1px solid var(--line-1)",
+        height: "var(--layout-toolbar-h)",
         overflowX: "auto",
         flexShrink: 0,
+        fontFamily: "var(--font-sans)",
       }}
     >
-      {/* Title */}
-      <div style={{ ...sectionStyle, paddingLeft: 16 }}>
-        <strong style={{ color: "#eee", fontSize: 13 }}>Koloniträdgårdsplaneraren</strong>
-        <span style={{ color: "#666", fontSize: 11 }}>geometry sandbox</span>
+      {/* Brand */}
+      <div style={{ ...sectionStyle, paddingLeft: 18 }}>
+        <img src="/logo-mark.svg" alt="" style={{ height: 22, display: "block" }} />
+        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
+          <strong
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: 17,
+              color: "var(--ink-1)",
+              fontWeight: 500,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            PlotPlaner
+          </strong>
+          <span
+            style={{
+              fontSize: 10.5,
+              color: "var(--ink-2)",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+              fontWeight: 500,
+            }}
+          >
+            Sandbox
+          </span>
+        </div>
       </div>
 
-      {/* Add/Remove */}
+      {/* Add / remove */}
       <div style={sectionStyle}>
-        <button style={btn} onClick={addRect}>+ Rektangel</button>
+        <button data-pp-btn data-variant="primary" onClick={addRect} title="Lägg till bädd">
+          <IconPlus size={14} /> Lägg till bädd
+        </button>
         <button
-          style={{ ...btn, opacity: selected ? 1 : 0.4 }}
-          onClick={() => dispatch({ type: "removeSelected" })}
+          data-pp-btn
+          data-icon-only="true"
           disabled={!selected}
+          onClick={() => dispatch({ type: "removeSelected" })}
+          title="Ta bort vald bädd"
         >
-          – Ta bort
+          <IconTrash size={14} />
         </button>
       </div>
 
-      {/* Undo/Redo */}
+      {/* Undo / redo */}
       <div style={sectionStyle}>
         <button
-          style={{ ...btn, opacity: canUndo ? 1 : 0.4 }}
+          data-pp-btn
+          data-icon-only="true"
           onClick={onUndo}
           disabled={!canUndo}
           title="Ångra (⌘Z / Ctrl+Z)"
         >
-          ↶ Ångra
+          <IconUndo size={14} />
         </button>
         <button
-          style={{ ...btn, opacity: canRedo ? 1 : 0.4 }}
+          data-pp-btn
+          data-icon-only="true"
           onClick={onRedo}
           disabled={!canRedo}
           title="Gör om (⌘⇧Z / Ctrl+Shift+Z)"
         >
-          ↷ Gör om
+          <IconRedo size={14} />
         </button>
       </div>
 
       {/* JSON I/O */}
       <div style={sectionStyle}>
-        <button style={btn} onClick={() => saveScene(state)} title="Ladda ner scene.json">
-          Spara JSON
+        <button data-pp-btn onClick={() => saveScene(state)} title="Ladda ner scen.json">
+          <IconSave size={14} /> Spara
         </button>
-        <button style={btn} onClick={() => loadSceneFromFile(dispatch)} title="Ladda scene.json">
-          Ladda JSON
+        <button data-pp-btn onClick={() => loadSceneFromFile(dispatch)} title="Ladda scen.json">
+          <IconFolderOpen size={14} /> Ladda
         </button>
       </div>
 
       {/* Selected rect controls */}
       {selected && (
         <div style={sectionStyle}>
-          <span style={{ color: "#aaa", fontSize: 12 }}>Vald: {selected.id}</span>
-          <button style={btn} onClick={() => dispatch({ type: "rotateSelected", deltaDeg: -15 })}>
-            ↺ -15°
+          <span style={valueStyle}>{selected.id}</span>
+          <button
+            data-pp-btn
+            data-icon-only="true"
+            onClick={() => dispatch({ type: "rotateSelected", deltaDeg: -15 })}
+            title="Rotera -15°"
+          >
+            <IconRotateCCW size={14} />
           </button>
-          <button style={btn} onClick={() => dispatch({ type: "rotateSelected", deltaDeg: 15 })}>
-            ↻ +15°
+          <button
+            data-pp-btn
+            data-icon-only="true"
+            onClick={() => dispatch({ type: "rotateSelected", deltaDeg: 15 })}
+            title="Rotera +15°"
+          >
+            <IconRotateCW size={14} />
           </button>
-          <span style={{ color: "#aaa", fontSize: 12 }}>wallHeight (mm)</span>
+          <span style={labelStyle}>Vägghöjd</span>
           <input
             type="number"
             value={selected.wallHeight}
@@ -158,8 +245,11 @@ export function Toolbar({
                 mm: Number(e.target.value) || 0,
               })
             }
-            style={inputStyle}
+            data-pp-input
+            data-mono="true"
+            style={{ width: 72 }}
           />
+          <span style={{ ...labelStyle, marginLeft: -2 }}>mm</span>
         </div>
       )}
 
@@ -169,22 +259,32 @@ export function Toolbar({
           dateIso={state.sun.dateIso}
           onChange={(iso) => dispatch({ type: "setSun", dateIso: iso })}
         />
-        <input
-          type="checkbox"
-          checked={state.showShadows}
-          onChange={() => dispatch({ type: "toggleShadows" })}
-        />
-        <span style={{ color: "#aaa", fontSize: 12 }}>Skuggor</span>
-        <span style={{ color: "#888", fontSize: 11 }}>
-          Sol: alt {((sun.altitudeRad * 180) / Math.PI).toFixed(1)}°, az{" "}
-          {((sun.azimuthRad * 180) / Math.PI).toFixed(1)}°
+        <label style={{ ...inlineLabelStyle, marginLeft: 4 }} title="Visa skuggor på arbetsytan">
+          <input
+            type="checkbox"
+            checked={state.showShadows}
+            onChange={() => dispatch({ type: "toggleShadows" })}
+            data-pp-input
+          />
+          <IconLayers size={13} /> Skuggor
+        </label>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontVariantNumeric: "tabular-nums",
+            fontSize: 11.5,
+            color: "var(--ink-2)",
+          }}
+          title="Solens position (altitud, azimut)"
+        >
+          {fmtNum(sunAltDeg, 1)}° / {fmtNum(sunAzDeg, 1)}°
         </span>
       </div>
 
       {/* Plot boundary + Grid + North rotation */}
       <div style={sectionStyle}>
         <button
-          style={btn}
+          data-pp-btn
           onClick={() =>
             dispatch({
               type: "setPlotBoundary",
@@ -199,19 +299,19 @@ export function Toolbar({
               },
             })
           }
+          title="Skapa tomtens yttre gräns"
         >
-          Skapa tomt
+          <IconSquare size={14} /> Tomt
         </button>
 
-        <label style={{ color: "#aaa", fontSize: 12 }}>
+        <label style={inlineLabelStyle} title="Snappa till rutnät">
           <input
             type="checkbox"
             checked={state.snapToGrid}
-            onChange={(e) =>
-              dispatch({ type: "setSnapToGrid", enabled: e.target.checked })
-            }
-          />{" "}
-          Snap
+            onChange={(e) => dispatch({ type: "setSnapToGrid", enabled: e.target.checked })}
+            data-pp-input
+          />
+          <IconGrid size={13} /> Snap
         </label>
 
         <input
@@ -220,11 +320,13 @@ export function Toolbar({
           onChange={(e) =>
             dispatch({ type: "setGridStep", mm: Number(e.target.value) || 100 })
           }
-          style={{ ...inputStyle, width: 55 }}
-          title="Grid-steg i mm"
+          data-pp-input
+          data-mono="true"
+          style={{ width: 64 }}
+          title="Rutnätssteg i mm"
         />
 
-        <span style={{ color: "#aaa", fontSize: 12 }}>N-rotation°</span>
+        <IconCompass size={14} style={{ color: "var(--ink-2)" }} />
         <input
           type="number"
           value={state.plot.northRotationDeg}
@@ -232,35 +334,69 @@ export function Toolbar({
           onChange={(e) =>
             dispatch({ type: "setNorthRotation", deg: Number(e.target.value) || 0 })
           }
-          style={{ ...inputStyle, width: 55 }}
-          title="Grader CW — roterar solreferensramen (ADR-006)"
+          data-pp-input
+          data-mono="true"
+          style={{ width: 60 }}
+          title="Norr-rotation i grader (ADR-006 — roterar enbart solreferensramen)"
         />
+        <span style={{ ...labelStyle, marginLeft: -2 }}>N°</span>
       </div>
 
       {/* Measurements */}
       <div style={sectionStyle}>
-        <span style={{ color: "#aaa", fontSize: 12 }}>Bäddhöjd (mm)</span>
+        <IconRuler size={14} style={{ color: "var(--ink-2)" }} />
+        <span style={labelStyle}>Bäddhöjd</span>
         <input
           type="number"
           value={bedDepth}
           onChange={(e) => setBedDepth(Number(e.target.value) || 0)}
-          style={inputStyle}
+          data-pp-input
+          data-mono="true"
+          style={{ width: 72 }}
+          title="Bäddhöjd i mm (för jordvolymberäkning)"
         />
-        <span style={{ color: "#ddd", fontSize: 12 }}>
-          Σ {totalAreaM2.toFixed(2)} m² · {totalSoilL.toFixed(0)} L jord
+        <span style={{ ...labelStyle, marginLeft: -2 }}>mm</span>
+        <span
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontVariantNumeric: "tabular-nums",
+            fontSize: 12.5,
+            color: "var(--ink-1)",
+            marginLeft: 6,
+          }}
+        >
+          Σ {fmtNum(totalAreaM2, 2)} m² · {fmtInt(totalSoilL)} L
         </span>
       </div>
 
       {/* Overlap status */}
-      <div style={{ ...sectionStyle, borderRight: "none" }}>
+      <div style={sectionStyle}>
         <span
           style={{
-            color: overlapCount ? "#ff8080" : "#80cc80",
-            fontSize: 12,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            color: overlapCount ? "var(--state-danger)" : "var(--state-success)",
+            fontSize: 12.5,
           }}
         >
-          {overlapCount ? `⚠ ${overlapCount} kollision(er)` : "✓ inga kollisioner"}
+          {overlapCount ? <IconTriangleAlert size={14} /> : <IconCheck size={14} />}
+          {formatCollisionStatus(overlapCount)}
         </span>
+      </div>
+
+      {/* Theme toggle */}
+      <div style={lastSectionStyle}>
+        <button
+          data-pp-btn
+          data-variant="ghost"
+          data-icon-only="true"
+          onClick={onToggleTheme}
+          title={theme === "dark" ? "Byt till dagläge (paper)" : "Byt till kvällsläge (evening)"}
+          aria-label="Byt tema"
+        >
+          {theme === "dark" ? <IconSun size={14} /> : <IconMoon size={14} />}
+        </button>
       </div>
     </div>
   );

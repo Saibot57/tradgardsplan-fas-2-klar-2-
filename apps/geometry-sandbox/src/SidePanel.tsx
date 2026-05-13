@@ -1,12 +1,9 @@
 /**
  * SidePanel — per-bed inspector.
  *
- * Shows dimensions, area, soil volume, rotation, wall height, and
- * **aggregate summer sun hours** for the selected bed.
- *
- * Aggregate sun hours uses a fixed reference date (midsummer) and is
- * INDEPENDENT of TimeSlider, which controls interactive shadow preview.
- * These two never share a state field (ADR-007/008 distinction).
+ * Aggregate summer sun hours use a fixed reference date (midsummer)
+ * and are INDEPENDENT of TimeSlider (which controls interactive shadow
+ * preview). The two are never collapsed into a shared state field.
  */
 
 import { useMemo } from "react";
@@ -17,6 +14,7 @@ import {
   type Rect,
 } from "@kolonitradgard/spatial-core";
 import type { SandboxState } from "./state.js";
+import { fmtInt, fmtNum } from "./format.js";
 
 // Midsummer near Landskrona — fixed reference date for aggregate analysis.
 const REFERENCE_DATE = new Date(2025, 5, 21);
@@ -27,36 +25,59 @@ interface Props {
 }
 
 const panelStyle: React.CSSProperties = {
-  width: 240,
-  background: "#1e1e1e",
-  borderLeft: "1px solid #333",
-  color: "#ddd",
-  padding: 12,
-  fontSize: 12,
+  width: "var(--layout-sidepanel-w)",
+  flexShrink: 0,
+  background: "var(--bg-surface)",
+  borderLeft: "1px solid var(--line-1)",
+  color: "var(--ink-1)",
+  padding: "20px 22px",
   display: "flex",
   flexDirection: "column",
-  gap: 8,
-  flexShrink: 0,
+  gap: 22,
   overflowY: "auto",
+  fontFamily: "var(--font-sans)",
 };
 
-const labelStyle: React.CSSProperties = {
-  color: "#888",
-  fontSize: 11,
+const sectionTitleStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  color: "var(--ink-2)",
   textTransform: "uppercase",
-  letterSpacing: 0.5,
+  letterSpacing: "0.08em",
+  fontWeight: 500,
+  marginBottom: 6,
 };
 
-const valueStyle: React.CSSProperties = {
-  color: "#eee",
-  fontSize: 13,
+const rowStyle: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "baseline",
+  gap: 12,
+  padding: "5px 0",
 };
+
+const rowLabelStyle: React.CSSProperties = {
+  fontSize: 11.5,
+  color: "var(--ink-2)",
+  textTransform: "uppercase",
+  letterSpacing: "0.07em",
+  fontWeight: 500,
+};
+
+const rowValueStyle: React.CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontSize: 13.5,
+  color: "var(--ink-1)",
+  fontVariantNumeric: "tabular-nums",
+  textAlign: "right",
+};
+
+const unitStyle: React.CSSProperties = { color: "var(--ink-2)" };
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div>
-      <div style={labelStyle}>{label}</div>
-      <div style={valueStyle}>{value}</div>
+    <div style={rowStyle}>
+      <div style={rowLabelStyle}>{label}</div>
+      <div style={rowValueStyle}>{value}</div>
     </div>
   );
 }
@@ -83,54 +104,148 @@ export function SidePanel({ state, bedDepth }: Props) {
     state.plot.northRotationDeg,
   ]);
 
-  if (!selected) {
-    return (
-      <div style={panelStyle}>
-        <strong style={{ color: "#eee", fontSize: 13 }}>Bädd-inspektor</strong>
-        <div style={{ color: "#888", fontStyle: "italic", marginTop: 6 }}>
-          Markera en bädd för att se detaljer.
-        </div>
-      </div>
-    );
-  }
-
-  const areaM2 = rectAreaM2(selected);
-  const soilL = bedSoilVolumeLitres(selected, bedDepth);
+  const totalArea = state.rectangles.reduce((s, r) => s + rectAreaM2(r), 0);
+  const totalSoil = state.rectangles.reduce(
+    (s, r) => s + bedSoilVolumeLitres(r, bedDepth),
+    0,
+  );
+  const plot = state.plot.boundaryRect;
 
   return (
-    <div style={panelStyle}>
-      <strong style={{ color: "#eee", fontSize: 13 }}>Bädd-inspektor</strong>
-      <Row label="ID" value={selected.id} />
-      <Row
-        label="Mått"
-        value={`${selected.width} × ${selected.height} mm`}
-      />
-      <Row
-        label="Position (center)"
-        value={`(${selected.cx}, ${selected.cy}) mm`}
-      />
-      <Row
-        label="Rotation"
-        value={`${selected.rotationDeg.toFixed(1)}°`}
-      />
-      <Row
-        label="Vägghöjd"
-        value={selected.wallHeight > 0 ? `${selected.wallHeight} mm` : "—"}
-      />
-      <Row label="Area" value={`${areaM2.toFixed(2)} m²`} />
-      <Row label={`Jordvolym (${bedDepth} mm djup)`} value={`${soilL.toFixed(0)} L`} />
-      <div style={{ borderTop: "1px solid #333", marginTop: 8, paddingTop: 8 }}>
-        <Row
-          label="Soltimmar (midsommar)"
-          value={
-            sunHoursValue == null ? "—" : `${sunHoursValue.toFixed(0)} h`
-          }
-        />
-        <div style={{ color: "#666", fontSize: 10, marginTop: 4 }}>
-          Aggregerad analys över 06–20 på fast referensdatum
-          (oberoende av tidsreglaget).
+    <aside style={panelStyle}>
+      <div>
+        <div
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: 22,
+            color: "var(--ink-1)",
+            letterSpacing: "-0.01em",
+            lineHeight: 1.15,
+            fontWeight: 500,
+          }}
+        >
+          {selected ? "Bädd-inspektor" : "Ingen bädd vald"}
+        </div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 4, lineHeight: 1.5 }}>
+          {selected
+            ? "Mått, jord och sol för den valda bädden."
+            : "Klicka på en bädd i ritningen för att se detaljer."}
         </div>
       </div>
-    </div>
+
+      {selected && (
+        <section>
+          <div style={sectionTitleStyle}>Geometri</div>
+          <Row label="ID" value={selected.id} />
+          <Row
+            label="Mått"
+            value={
+              <>
+                {fmtInt(selected.width)} × {fmtInt(selected.height)}{" "}
+                <span style={unitStyle}>mm</span>
+              </>
+            }
+          />
+          <Row
+            label="Position"
+            value={<>({fmtInt(selected.cx)}, {fmtInt(selected.cy)})</>}
+          />
+          <Row label="Rotation" value={<>{fmtNum(selected.rotationDeg, 1)}°</>} />
+          <Row
+            label="Vägghöjd"
+            value={
+              selected.wallHeight > 0 ? (
+                <>
+                  {fmtInt(selected.wallHeight)} <span style={unitStyle}>mm</span>
+                </>
+              ) : (
+                "—"
+              )
+            }
+          />
+        </section>
+      )}
+
+      {selected && (
+        <section>
+          <div style={sectionTitleStyle}>Beräkningar</div>
+          <Row
+            label="Area"
+            value={
+              <>
+                {fmtNum(rectAreaM2(selected), 2)} <span style={unitStyle}>m²</span>
+              </>
+            }
+          />
+          <Row
+            label={`Jordvolym (${bedDepth} mm)`}
+            value={
+              <>
+                {fmtInt(bedSoilVolumeLitres(selected, bedDepth))}{" "}
+                <span style={unitStyle}>L</span>
+              </>
+            }
+          />
+        </section>
+      )}
+
+      {selected && (
+        <section>
+          <div style={sectionTitleStyle}>Soltimmar</div>
+          <div
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 32,
+              color: "var(--ink-1)",
+              letterSpacing: "-0.01em",
+              fontVariantNumeric: "tabular-nums",
+              lineHeight: 1.1,
+            }}
+          >
+            {sunHoursValue == null ? "—" : fmtNum(sunHoursValue, 1)}
+            <span style={{ fontSize: 15, color: "var(--ink-2)", marginLeft: 4 }}>h</span>
+          </div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-2)", marginTop: 6, lineHeight: 1.5 }}>
+            Aggregerad analys 06–20 vid midsommar. Oberoende av tidsreglaget.
+          </div>
+        </section>
+      )}
+
+      <div style={{ height: 1, background: "var(--line-1)" }} />
+
+      <section>
+        <div style={sectionTitleStyle}>Sammanställning</div>
+        <Row label="Bäddar" value={state.rectangles.length} />
+        <Row
+          label="Tomt"
+          value={
+            plot ? (
+              <>
+                {fmtNum(plot.width / 1000, 1)} × {fmtNum(plot.height / 1000, 1)}{" "}
+                <span style={unitStyle}>m</span>
+              </>
+            ) : (
+              "—"
+            )
+          }
+        />
+        <Row
+          label="Σ Area"
+          value={
+            <>
+              {fmtNum(totalArea, 2)} <span style={unitStyle}>m²</span>
+            </>
+          }
+        />
+        <Row
+          label="Σ Jord"
+          value={
+            <>
+              {fmtInt(totalSoil)} <span style={unitStyle}>L</span>
+            </>
+          }
+        />
+      </section>
+    </aside>
   );
 }

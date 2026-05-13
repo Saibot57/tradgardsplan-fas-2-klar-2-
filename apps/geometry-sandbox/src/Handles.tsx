@@ -18,6 +18,7 @@ import {
   type Viewport,
 } from "@kolonitradgard/spatial-core";
 import { MIN_RECT_DIMENSION_MM } from "./state.js";
+import type { CanvasPalette } from "./palette.js";
 
 export const HANDLE_SIZE_PX = 10;
 export const ROTATE_HANDLE_OFFSET_PX = 30;
@@ -189,13 +190,14 @@ export function drawHandles(
   ctx: CanvasRenderingContext2D,
   rect: Rect,
   vp: Viewport,
+  palette: CanvasPalette,
 ): void {
   const positions = getHandleScreenPositions(rect, vp);
 
   // Tether line from top-mid to rotate handle.
   const topMidScreen = worldToScreen(localToWorld({ x: 0, y: -rect.height / 2 }, rect), vp);
   const rotatePos = positions.find((p) => p.id === "rotate")!.screen;
-  ctx.strokeStyle = "#ffd166";
+  ctx.strokeStyle = palette.accentSun;
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(topMidScreen.x, topMidScreen.y);
@@ -206,16 +208,16 @@ export function drawHandles(
   for (const { id, screen } of positions) {
     if (id === "rotate") continue;
     const half = HANDLE_SIZE_PX / 2;
-    ctx.fillStyle = "#fff";
-    ctx.strokeStyle = "#222";
+    ctx.fillStyle = palette.handleFill;
+    ctx.strokeStyle = palette.handleStroke;
     ctx.lineWidth = 1;
     ctx.fillRect(screen.x - half, screen.y - half, HANDLE_SIZE_PX, HANDLE_SIZE_PX);
     ctx.strokeRect(screen.x - half, screen.y - half, HANDLE_SIZE_PX, HANDLE_SIZE_PX);
   }
 
   // Rotate handle.
-  ctx.fillStyle = "#ffd166";
-  ctx.strokeStyle = "#222";
+  ctx.fillStyle = palette.rotateHandleFill;
+  ctx.strokeStyle = palette.handleStroke;
   ctx.beginPath();
   ctx.arc(rotatePos.x, rotatePos.y, ROTATE_HANDLE_RADIUS_PX, 0, Math.PI * 2);
   ctx.fill();

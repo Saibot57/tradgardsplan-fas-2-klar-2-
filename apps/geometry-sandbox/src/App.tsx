@@ -42,10 +42,29 @@ function isEditableTarget(t: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
+function readInitialTheme(): "light" | "dark" {
+  if (typeof document === "undefined") return "light";
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+}
+
 export function App() {
   const [historyState, dispatch] = useReducer(wrappedReducer, initialHistory);
   const state = historyState.present;
   const [bedDepth, setBedDepth] = useState(300); // mm
+  const [theme, setTheme] = useState<"light" | "dark">(readInitialTheme);
+
+  const onToggleTheme = useCallback(() => {
+    setTheme((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      if (next === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+      } else {
+        document.documentElement.removeAttribute("data-theme");
+      }
+      try { localStorage.setItem("pp-theme", next); } catch { /* ignore quota */ }
+      return next;
+    });
+  }, []);
 
   // Keyboard: ⌘Z / Ctrl+Z (undo), ⌘⇧Z / Ctrl+Shift+Z (redo)
   useEffect(() => {
@@ -90,7 +109,7 @@ export function App() {
   const onRedo = useCallback(() => dispatch({ type: "redo" }), []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#1a1a1a" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg-paper)" }}>
       <Toolbar
         state={state}
         dispatch={dispatch}
@@ -104,6 +123,8 @@ export function App() {
         onRedo={onRedo}
         canUndo={canUndo(historyState)}
         canRedo={canRedo(historyState)}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
       />
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
         <Canvas
@@ -111,6 +132,7 @@ export function App() {
           dispatch={dispatch}
           sun={sun}
           overlappingIds={overlappingIds}
+          theme={theme}
         />
         <SidePanel state={state} bedDepth={bedDepth} />
       </div>
