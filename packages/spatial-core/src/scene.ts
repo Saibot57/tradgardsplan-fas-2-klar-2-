@@ -1,8 +1,8 @@
-import type { PlotConfig, Rect } from "./types.js";
+import type { PlantPlacement, PlotConfig, Rect } from "./types.js";
 import { isObjectKind } from "./kind.js";
 
 /** Current scene format version. Bump when schema changes. */
-export const SCENE_VERSION = 3;
+export const SCENE_VERSION = 4;
 
 export interface SceneV1 {
   version: 1;
@@ -36,14 +36,42 @@ export interface SceneV3 {
   rectangles: Rect[];
 }
 
+/**
+ * v4 — växtkatalog (PlantCatalog).
+ *  - `Rect.plants?: PlantPlacement[]` valfritt per bädd. Saknat == inga växter.
+ *  - `plannedPlantIds: string[]` obligatoriskt på scen-nivå: katalog-växter som
+ *    användaren markerat "planera" men inte placerat i någon bädd ännu.
+ *
+ * Migrering v1/v2/v3 → v4 är transparent: rektanglar lämnas oförändrade,
+ * `plannedPlantIds` defaultar till tom array.
+ */
+export interface SceneV4 {
+  version: 4;
+  plot: PlotConfig;
+  boundary?: Rect | null;
+  rectangles: Rect[];
+  plannedPlantIds: string[];
+}
+
 /** Union type for all known versions — utökas vid framtida migrering. */
-export type Scene = SceneV1 | SceneV2 | SceneV3;
+export type Scene = SceneV1 | SceneV2 | SceneV3 | SceneV4;
 
 export class SceneParseError extends Error {
   constructor(message: string, public readonly raw: unknown) {
     super(message);
     this.name = "SceneParseError";
   }
+}
+
+function canonicalizePlacement(p: PlantPlacement): PlantPlacement {
+  return {
+    placementId: p.placementId,
+    plantId: p.plantId,
+    displayName: p.displayName,
+    offsetX: Math.round(p.offsetX),
+    offsetY: Math.round(p.offsetY),
+    count: Math.max(1, Math.round(p.count)),
+  };
 }
 
 function canonicalizeRect(r: Rect): Rect {
@@ -61,6 +89,10 @@ function canonicalizeRect(r: Rect): Rect {
   if (typeof r.notes === "string" && r.notes.length > 0) out.notes = r.notes;
   // kind utelämnas om värdet är default ("bed") — kompakt JSON och V2-kompatibel form
   if (r.kind !== undefined && r.kind !== "bed") out.kind = r.kind;
+  // plants (v4): tomma listor utelämnas — minimal JSON och bakåt-läsbar för v1–v3.
+  if (Array.isArray(r.plants) && r.plants.length > 0) {
+    out.plants = r.plants.map(canonicalizePlacement);
+  }
   return out;
 }
 
@@ -69,15 +101,17 @@ export function serializeScene(state: {
   plot: PlotConfig;
   boundary?: Rect | null;
   rectangles: Rect[];
-}): SceneV3 {
+  plannedPlantIds?: readonly string[];
+}): SceneV4 {
   return {
-    version: 3,
+    version: 4,
     plot: {
       northRotationDeg: Math.round(state.plot.northRotationDeg),
       location: state.plot.location,
     },
     boundary: state.boundary ? canonicalizeRect(state.boundary) : null,
     rectangles: state.rectangles.map(canonicalizeRect),
+    plannedPlantIds: state.plannedPlantIds ? [...state.plannedPlantIds] : [],
   };
 }
 
@@ -89,7 +123,7 @@ export function parseScene(raw: unknown): Scene {
 
   const obj = raw as Record<string, unknown>;
 
-  if (obj.version !== 1 && obj.version !== 2 && obj.version !== 3) {
+  if (obj.version !== 1 && obj.version !== 2 && obj.version !== 3 && obj.version !== 4) {
     throw new SceneParseError(
       `Unsupported or missing version: ${obj.version}`,
       raw,
@@ -112,6 +146,23 @@ export function parseScene(raw: unknown): Scene {
 
   if (scene.boundary != null) {
     validateRect(scene.boundary, raw);
+  }
+
+  if (scene.version === 4) {
+    if (!Array.isArray(scene.plannedPlantIds)) {
+      throw new SceneParseError(
+        "plannedPlantIds must be an array of strings (v4)",
+        raw,
+      );
+    }
+    for (const id of scene.plannedPlantIds) {
+      if (typeof id !== "string" || id.length === 0) {
+        throw new SceneParseError(
+          "plannedPlantIds entries must be non-empty strings",
+          raw,
+        );
+      }
+    }
   }
 
   return scene;
@@ -151,22 +202,57 @@ function validateRect(rect: Rect, raw: unknown): void {
       raw,
     );
   }
+  // plants (v4) — om present måste vara en korrekt PlantPlacement[].
+  if (rect.plants !== undefined) {
+    if (!Array.isArray(rect.plants)) {
+      throw new SceneParseError("Rect.plants must be an array when present", raw);
+    }
+    for (const p of rect.plants) {
+      validatePlacement(p, raw);
+    }
+  }
+}
+
+function validatePlacement(p: PlantPlacement, raw: unknown): void {
+  if (!p || typeof p !== "object") {
+    throw new SceneParseError("PlantPlacement must be an object", raw);
+  }
+  if (typeof p.placementId !== "string" || p.placementId.length === 0) {
+    throw new SceneParseError("PlantPlacement.placementId must be a non-empty string", raw);
+  }
+  if (typeof p.plantId !== "string" || p.plantId.length === 0) {
+    throw new SceneParseError("PlantPlacement.plantId must be a non-empty string", raw);
+  }
+  if (typeof p.displayName !== "string" || p.displayName.length === 0) {
+    throw new SceneParseError("PlantPlacement.displayName must be a non-empty string", raw);
+  }
+  if (
+    typeof p.offsetX !== "number" ||
+    typeof p.offsetY !== "number" ||
+    !Number.isFinite(p.offsetX) ||
+    !Number.isFinite(p.offsetY)
+  ) {
+    throw new SceneParseError("PlantPlacement offsets must be finite numbers", raw);
+  }
+  if (typeof p.count !== "number" || !Number.isFinite(p.count) || p.count < 1) {
+    throw new SceneParseError("PlantPlacement.count must be >= 1", raw);
+  }
 }
 
 /**
- * Migrate older scene versions to current (v3).
- * v1 → v2: identity (label/notes är optional).
- * v2 → v3: identity (kind är optional och defaultar till "bed" via getKind()).
+ * Migrate older scene versions to current (v4).
+ * v1 → v4: identity at rect level (label/notes optional). Adds plannedPlantIds: [].
+ * v2 → v4: identity (kind optional). Adds plannedPlantIds: [].
+ * v3 → v4: identity at rect level. Adds plannedPlantIds: [].
+ * v4 → v4: returnerar input (samma referens) för billig idempotency-check.
  */
-export function migrateScene(scene: Scene): SceneV3 {
-  if (scene.version === 3) return scene;
-  // v1/v2 → v3: bara version-bumpning. Optional fields (label/notes/kind)
-  // saknas legitimt och tolkas via default-helpers (getKind() etc.).
+export function migrateScene(scene: Scene): SceneV4 {
+  if (scene.version === 4) return scene;
   return {
-    version: 3,
+    version: 4,
     plot: scene.plot,
     ...(scene.boundary != null ? { boundary: scene.boundary } : { boundary: null }),
     rectangles: scene.rectangles,
+    plannedPlantIds: [],
   };
 }
-

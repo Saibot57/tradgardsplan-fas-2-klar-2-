@@ -3,7 +3,7 @@ import {
   type Rect,
   type GeoLocation,
   type ObjectKind,
-  type SceneV3,
+  type SceneV4,
 } from "@kolonitradgard/spatial-core";
 
 /** Minimum width/height for any Rect in the sandbox (precision_policy §7). */
@@ -57,7 +57,7 @@ export type Action =
   | { type: "setPlotBoundary"; rect: Rect | null }
   | { type: "setSnapToGrid"; enabled: boolean }
   | { type: "setGridStep"; mm: number }
-  | { type: "loadScene"; scene: SceneV3 }
+  | { type: "loadScene"; scene: SceneV4 }
   | { type: "newScene" }
   | { type: "setRectMeta"; id: string; label?: string; notes?: string }
   | { type: "setRectKind"; id: string; kind: ObjectKind };
