@@ -5,7 +5,7 @@ import {
   migrateScene,
   SceneParseError,
 } from "../src/scene.js";
-import type { PlotConfig, Rect } from "../src/types.js";
+import type { PlantPlacement, PlotConfig, Rect } from "../src/types.js";
 
 const validPlot: PlotConfig = {
   northRotationDeg: 0,
@@ -28,7 +28,7 @@ describe("scene — serialize/parse roundtrip", () => {
     const serialized = serializeScene(state);
     const parsed = parseScene(serialized);
 
-    expect(parsed.version).toBe(3);
+    expect(parsed.version).toBe(4);
     expect(parsed.rectangles[0]!.cx).toBe(1000);
     expect(parsed.rectangles[0]!.width).toBe(300);
   });
@@ -118,33 +118,197 @@ describe("scene — boundary round-trip", () => {
 });
 
 describe("scene — migrateScene", () => {
-  it("migrateScene v1 → v3 bumps version", () => {
+  it("migrateScene v1 → v4 bumps version and adds plannedPlantIds: []", () => {
     const v1 = { version: 1 as const, plot: validPlot, rectangles: [validRect] };
-    const v3 = migrateScene(v1);
-    expect(v3.version).toBe(3);
-    expect(v3.rectangles[0]?.cx).toBe(validRect.cx);
+    const v4 = migrateScene(v1);
+    expect(v4.version).toBe(4);
+    expect(v4.rectangles[0]?.cx).toBe(validRect.cx);
+    expect(v4.plannedPlantIds).toEqual([]);
   });
 
-  it("migrateScene v2 → v3 bumps version", () => {
+  it("migrateScene v2 → v4 bumps version", () => {
     const v2 = { version: 2 as const, plot: validPlot, rectangles: [validRect] };
-    const v3 = migrateScene(v2);
-    expect(v3.version).toBe(3);
+    const v4 = migrateScene(v2);
+    expect(v4.version).toBe(4);
+    expect(v4.plannedPlantIds).toEqual([]);
   });
 
-  it("migrateScene is identity for v3", () => {
-    const v3 = { version: 3 as const, plot: validPlot, rectangles: [] };
-    expect(migrateScene(v3)).toBe(v3);
+  it("migrateScene v3 → v4 adds plannedPlantIds without touching rectangles", () => {
+    const v3 = { version: 3 as const, plot: validPlot, rectangles: [validRect] };
+    const v4 = migrateScene(v3);
+    expect(v4.version).toBe(4);
+    expect(v4.plannedPlantIds).toEqual([]);
+    // Same rectangle data — migration is transparent at the Rect level.
+    expect(v4.rectangles[0]).toEqual(v3.rectangles[0]);
   });
 
-  it("migrateScene v1 → v3 bevarar boundary", () => {
+  it("migrateScene is identity for v4", () => {
+    const v4 = {
+      version: 4 as const,
+      plot: validPlot,
+      rectangles: [],
+      plannedPlantIds: ["tomat"],
+    };
+    expect(migrateScene(v4)).toBe(v4);
+  });
+
+  it("migrateScene v1 → v4 bevarar boundary", () => {
     const boundary: Rect = {
       id: "plot-boundary",
       cx: 6000, cy: 5000, width: 12000, height: 8000,
       rotationDeg: 0, wallHeight: 0,
     };
     const v1 = { version: 1 as const, plot: validPlot, boundary, rectangles: [] };
-    const v3 = migrateScene(v1);
-    expect(v3.boundary?.id).toBe("plot-boundary");
+    const v4 = migrateScene(v1);
+    expect(v4.boundary?.id).toBe("plot-boundary");
+  });
+});
+
+describe("scene v4 — plannedPlantIds", () => {
+  it("serializeScene emits version 4", () => {
+    const s = serializeScene({ plot: validPlot, rectangles: [validRect] });
+    expect(s.version).toBe(4);
+  });
+
+  it("serializeScene defaults plannedPlantIds to []", () => {
+    const s = serializeScene({ plot: validPlot, rectangles: [validRect] });
+    expect(s.plannedPlantIds).toEqual([]);
+  });
+
+  it("serializeScene preserves plannedPlantIds order", () => {
+    const s = serializeScene({
+      plot: validPlot,
+      rectangles: [],
+      plannedPlantIds: ["chili", "tomat", "morot"],
+    });
+    expect(s.plannedPlantIds).toEqual(["chili", "tomat", "morot"]);
+  });
+
+  it("round-trip preserves plannedPlantIds", () => {
+    const parsed = parseScene(
+      serializeScene({
+        plot: validPlot,
+        rectangles: [],
+        plannedPlantIds: ["pisum-sativum", "capsicum-frutescens"],
+      }),
+    );
+    expect(parsed.version).toBe(4);
+    if (parsed.version !== 4) throw new Error("expected v4");
+    expect(parsed.plannedPlantIds).toEqual(["pisum-sativum", "capsicum-frutescens"]);
+  });
+
+  it("rejects v4 with non-array plannedPlantIds", () => {
+    expect(() =>
+      parseScene({
+        version: 4,
+        plot: validPlot,
+        rectangles: [],
+        plannedPlantIds: "tomat",
+      }),
+    ).toThrow(SceneParseError);
+  });
+
+  it("rejects v4 with non-string entries in plannedPlantIds", () => {
+    expect(() =>
+      parseScene({
+        version: 4,
+        plot: validPlot,
+        rectangles: [],
+        plannedPlantIds: ["ok", 42],
+      }),
+    ).toThrow(SceneParseError);
+  });
+
+  it("rejects v4 with missing plannedPlantIds", () => {
+    expect(() =>
+      parseScene({
+        version: 4,
+        plot: validPlot,
+        rectangles: [],
+      }),
+    ).toThrow(SceneParseError);
+  });
+});
+
+describe("scene v4 — Rect.plants[]", () => {
+  const placement: PlantPlacement = {
+    placementId: "p1",
+    plantId: "solanum-lycopersicum",
+    displayName: "Tomat",
+    offsetX: -400,
+    offsetY: 0,
+    count: 3,
+  };
+
+  it("round-trips a rect with plants[]", () => {
+    const rectWithPlants: Rect = { ...validRect, plants: [placement] };
+    const parsed = parseScene(
+      serializeScene({ plot: validPlot, rectangles: [rectWithPlants] }),
+    );
+    expect(parsed.rectangles[0]?.plants?.length).toBe(1);
+    expect(parsed.rectangles[0]?.plants?.[0]?.plantId).toBe("solanum-lycopersicum");
+    expect(parsed.rectangles[0]?.plants?.[0]?.count).toBe(3);
+  });
+
+  it("canonicalizes placement offsets to integers", () => {
+    const r: Rect = {
+      ...validRect,
+      plants: [{ ...placement, offsetX: 123.7, offsetY: -45.4 }],
+    };
+    const s = serializeScene({ plot: validPlot, rectangles: [r] });
+    expect(s.rectangles[0]?.plants?.[0]?.offsetX).toBe(124);
+    expect(s.rectangles[0]?.plants?.[0]?.offsetY).toBe(-45);
+  });
+
+  it("clamps placement count to >= 1", () => {
+    const r: Rect = { ...validRect, plants: [{ ...placement, count: 0 }] };
+    const s = serializeScene({ plot: validPlot, rectangles: [r] });
+    expect(s.rectangles[0]?.plants?.[0]?.count).toBe(1);
+  });
+
+  it("omits empty plants array from serialized output", () => {
+    const r: Rect = { ...validRect, plants: [] };
+    const s = serializeScene({ plot: validPlot, rectangles: [r] });
+    expect(s.rectangles[0]?.plants).toBeUndefined();
+  });
+
+  it("rejects placement with non-string plantId", () => {
+    expect(() =>
+      parseScene({
+        version: 4,
+        plot: validPlot,
+        rectangles: [{ ...validRect, plants: [{ ...placement, plantId: 7 }] }],
+        plannedPlantIds: [],
+      }),
+    ).toThrow(SceneParseError);
+  });
+
+  it("rejects placement with NaN offsets", () => {
+    expect(() =>
+      parseScene({
+        version: 4,
+        plot: validPlot,
+        rectangles: [{ ...validRect, plants: [{ ...placement, offsetX: NaN }] }],
+        plannedPlantIds: [],
+      }),
+    ).toThrow(SceneParseError);
+  });
+
+  it("rejects placement with count < 1", () => {
+    expect(() =>
+      parseScene({
+        version: 4,
+        plot: validPlot,
+        rectangles: [{ ...validRect, plants: [{ ...placement, count: 0 }] }],
+        plannedPlantIds: [],
+      }),
+    ).toThrow(SceneParseError);
+  });
+
+  it("accepts v3 file without plants[] (forward-compatible read)", () => {
+    const v3 = { version: 3, plot: validPlot, rectangles: [validRect] };
+    const parsed = parseScene(v3);
+    expect(parsed.rectangles[0]?.plants).toBeUndefined();
   });
 });
 

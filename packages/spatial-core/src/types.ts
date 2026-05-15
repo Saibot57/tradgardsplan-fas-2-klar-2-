@@ -67,6 +67,28 @@ export interface Rect {
   notes?: string;
   /** Objekttyp (scene v3). Saknas == "bed". Se ADR-009. */
   kind?: ObjectKind;
+  /** Växter placerade i denna bädd (scene v4). Tomt eller saknat == inga växter. */
+  plants?: PlantPlacement[];
+}
+
+/**
+ * En växt placerad i en bädd. `offsetX`/`offsetY` är bädd-lokala mm
+ * (origo i rect-center, samma axlar som worldToLocal). `count` är antalet
+ * individer på platsen — alltid >= 1.
+ *
+ * Plain data: typen är ren scene-data som canonicaliseras vid serialize
+ * (offset rundas till integer mm, count clampas till >= 1). Beteende lever
+ * i sandbox-reducern, inte här.
+ */
+export interface PlantPlacement {
+  placementId: string;
+  /** PlantCareProfile.id (kebab-case scientific). */
+  plantId: string;
+  /** Visningsnamn för UI (oftast PlantCareProfile.commonName vid skapandet). */
+  displayName: string;
+  offsetX: number;
+  offsetY: number;
+  count: number;
 }
 
 /** A geographic location. */
