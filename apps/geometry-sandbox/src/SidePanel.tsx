@@ -25,6 +25,8 @@ import { IconTrash } from "./icons.js";
 import { fmtInt, fmtNum } from "./format.js";
 import { Row, rowLabelStyle, rowStyle } from "./shared/Row.js";
 import { sectionTitleStyle } from "./shared/SectionTitle.js";
+import type { PlantCareProfile } from "./plants/types.js";
+import { PlantThumbnail } from "./plant-catalog/primitives/PlantThumbnail.js";
 
 // Midsummer near Landskrona — fixed reference date for aggregate analysis.
 const REFERENCE_DATE = new Date(2025, 5, 21);
@@ -60,6 +62,8 @@ interface Props {
   dispatch: Dispatch<Action | HistoryAction>;
   overlappingIds: Set<string>;
   touchingIds: Set<string>;
+  /** Catalog used to look up category + scientific name per placement. */
+  plants: readonly PlantCareProfile[];
 }
 
 const panelStyle: React.CSSProperties = {
@@ -122,7 +126,14 @@ function BoundaryNumberRow({
   );
 }
 
-export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingIds }: Props) {
+export function SidePanel({
+  state,
+  bedDepth,
+  dispatch,
+  overlappingIds,
+  touchingIds,
+  plants,
+}: Props) {
   const primaryId = state.selectedIds[0] ?? null;
   const selected: Rect | undefined = state.rectangles.find(
     (r) => r.id === primaryId,
@@ -353,6 +364,17 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
         </section>
       )}
 
+      {selected && selectedKind === "bed" && (
+        <BedPlantsSection
+          placements={selected.plants ?? []}
+          plants={plants}
+          onOpenInCatalog={(plantId) => {
+            dispatch({ type: "selectPlant", plantId });
+            dispatch({ type: "switchTab", tab: "vaxter" });
+          }}
+        />
+      )}
+
       <div style={{ height: 1, background: "var(--line-1)" }} />
 
       <section>
@@ -498,5 +520,96 @@ export function SidePanel({ state, bedDepth, dispatch, overlappingIds, touchingI
         )}
       </section>
     </aside>
+  );
+}
+
+interface BedPlantsSectionProps {
+  placements: ReadonlyArray<import("@kolonitradgard/spatial-core").PlantPlacement>;
+  plants: readonly PlantCareProfile[];
+  onOpenInCatalog: (plantId: string) => void;
+}
+
+const bedPlantRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  width: "100%",
+  padding: "6px 0",
+  background: "transparent",
+  border: 0,
+  cursor: "pointer",
+  textAlign: "left",
+  fontFamily: "var(--font-sans)",
+  color: "var(--ink-1)",
+};
+
+function BedPlantsSection({ placements, plants, onOpenInCatalog }: BedPlantsSectionProps) {
+  return (
+    <section>
+      <div style={sectionTitleStyle}>Växter i bädden ({placements.length})</div>
+      {placements.length === 0 ? (
+        <div style={{ fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.5, fontStyle: "italic" }}>
+          Inga växter ännu. Öppna <strong style={{ color: "var(--ink-1)" }}>Växter</strong>-fliken
+          för att lägga till.
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {placements.map((p) => {
+            const catalogEntry = plants.find((c) => c.id === p.plantId);
+            const category = catalogEntry?.category ?? "vegetable";
+            const scientific = catalogEntry?.scientificName ?? "";
+            return (
+              <button
+                key={p.placementId}
+                type="button"
+                onClick={() => onOpenInCatalog(p.plantId)}
+                title="Öppna i Växter-katalogen"
+                style={bedPlantRowStyle}
+              >
+                <PlantThumbnail category={category} size={28} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 500,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {p.displayName}
+                  </div>
+                  {scientific && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--ink-2)",
+                        fontStyle: "italic",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {scientific}
+                    </div>
+                  )}
+                </div>
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--ink-2)",
+                    fontVariantNumeric: "tabular-nums",
+                    flexShrink: 0,
+                  }}
+                >
+                  ×{p.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }

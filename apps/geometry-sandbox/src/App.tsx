@@ -344,6 +344,7 @@ export function App() {
               dispatch={dispatch}
               overlappingIds={overlappingIds}
               touchingIds={touchingIds}
+              plants={PLANT_CATALOG}
             />
           </div>
         </>
@@ -355,6 +356,16 @@ export function App() {
           plannedPlantIds={state.plannedPlantIds}
           onSelectPlant={(id) => dispatch({ type: "selectPlant", plantId: id })}
           onShowOnCanvas={(plantId) => dispatch({ type: "showPlantOnCanvas", plantId })}
+          onTogglePlan={(plantId) => dispatch({ type: "togglePlannedPlant", plantId })}
+          onAddToBed={(plantId, bedId) => {
+            const plant = PLANT_CATALOG.find((p) => p.id === plantId);
+            dispatch({
+              type: "addPlantToBed",
+              plantId,
+              bedId,
+              displayName: plant?.commonName ?? plantId,
+            });
+          }}
         />
       )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
