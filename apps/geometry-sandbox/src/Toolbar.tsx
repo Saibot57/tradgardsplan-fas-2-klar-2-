@@ -14,14 +14,12 @@ import {
   IconFolderOpen,
   IconGrid,
   IconLayers,
-  IconMoon,
   IconPlus,
   IconRotateCCW,
   IconRotateCW,
   IconRuler,
   IconSave,
   IconSquare,
-  IconSun,
   IconTrash,
   IconTriangleAlert,
   IconUndo,
@@ -42,8 +40,6 @@ interface Props {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  theme: "light" | "dark";
-  onToggleTheme: () => void;
   autoSaveStatus: AutoSaveStatus;
   onResetAutoSaveBaseline: () => void;
   adapter: ScenePersistence;
@@ -150,8 +146,6 @@ export function Toolbar({
   onRedo,
   canUndo,
   canRedo,
-  theme,
-  onToggleTheme,
   autoSaveStatus,
   onResetAutoSaveBaseline,
   adapter,
@@ -222,37 +216,8 @@ export function Toolbar({
         fontFamily: "var(--font-sans)",
       }}
     >
-      {/* Brand */}
-      <div style={{ ...sectionStyle, paddingLeft: 18 }}>
-        <img src="/logo-mark.svg" alt="" style={{ height: 22, display: "block" }} />
-        <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.1 }}>
-          <strong
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: 17,
-              color: "var(--ink-1)",
-              fontWeight: 500,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            PlotPlaner
-          </strong>
-          <span
-            style={{
-              fontSize: 10.5,
-              color: "var(--ink-2)",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-              fontWeight: 500,
-            }}
-          >
-            Sandbox
-          </span>
-        </div>
-      </div>
-
       {/* Add / remove */}
-      <div style={sectionStyle}>
+      <div style={{ ...sectionStyle, paddingLeft: 18 }}>
         <button
           data-pp-btn
           data-variant="primary"
@@ -582,7 +547,7 @@ export function Toolbar({
       </div>
 
       {/* Overlap / touch status */}
-      <div style={sectionStyle}>
+      <div style={lastSectionStyle}>
         <span
           style={{
             display: "inline-flex",
@@ -599,20 +564,6 @@ export function Toolbar({
           {overlapCount || touchCount ? <IconTriangleAlert size={14} /> : <IconCheck size={14} />}
           {formatCollisionStatus(overlapCount, touchCount)}
         </span>
-      </div>
-
-      {/* Theme toggle */}
-      <div style={lastSectionStyle}>
-        <button
-          data-pp-btn
-          data-variant="ghost"
-          data-icon-only="true"
-          onClick={onToggleTheme}
-          title={theme === "dark" ? "Byt till dagläge (paper)" : "Byt till kvällsläge (evening)"}
-          aria-label="Byt tema"
-        >
-          {theme === "dark" ? <IconSun size={14} /> : <IconMoon size={14} />}
-        </button>
       </div>
     </div>
   );

@@ -134,3 +134,63 @@ export const IconRuler = (p: IconProps) => (
     <path d="M14 6l1.5 1.5M11 9l1.5 1.5M8 12l1.5 1.5M5 15l1.5 1.5" />
   </Svg>
 );
+
+// ── Plant catalog (step 5) ──────────────────────────────────────────
+
+export const IconSearch = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M21 21l-4.3-4.3" />
+  </Svg>
+);
+
+export const IconX = (p: IconProps) => (
+  <Svg {...p}><path d="M18 6L6 18M6 6l12 12" /></Svg>
+);
+
+export const IconChevronDown = (p: IconProps) => (
+  <Svg {...p}><path d="M6 9l6 6 6-6" /></Svg>
+);
+
+export const IconLeaf = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M11 20A7 7 0 0 1 4 13c0-5 5-9 11-9 0 5-2 11-4 11" />
+    <path d="M4 4l16 16" />
+  </Svg>
+);
+
+export const IconSprout = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 20h10" />
+    <path d="M12 20V9" />
+    <path d="M12 9C12 6 14 4 17 4c0 4-3 6-5 6" />
+    <path d="M12 9C12 7 10 5 7 5c0 3 2 5 5 5" />
+  </Svg>
+);
+
+export const IconFlower = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="2.5" />
+    <path d="M12 9.5c-1-2.5 0-5 2.5-5 .5 2.5-.5 5-2.5 5z" />
+    <path d="M14.5 12c2.5-1 5 0 5 2.5-2.5.5-5-.5-5-2.5z" />
+    <path d="M12 14.5c1 2.5 0 5-2.5 5-.5-2.5.5-5 2.5-5z" />
+    <path d="M9.5 12c-2.5 1-5 0-5-2.5 2.5-.5 5 .5 5 2.5z" />
+  </Svg>
+);
+
+export const IconCarrot = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 21l5-5" />
+    <path d="M17 4c-3 0-5 1-7 3l-6 6 4 4 6-6c2-2 3-4 3-6l-0.5-1z" />
+    <path d="M14.5 3.5l1-1M17 6l1-1M18 9l1 0" />
+  </Svg>
+);
+
+export const IconCherry = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="7" cy="17" r="3.5" />
+    <circle cx="17" cy="17" r="3.5" />
+    <path d="M7 13.5c0-5 4-9 9-9" />
+    <path d="M17 13.5c0-4-3-7-7-8" />
+  </Svg>
+);

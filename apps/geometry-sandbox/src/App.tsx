@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { AppHeader } from "./AppHeader.js";
 import { Canvas } from "./Canvas.js";
 import { Toolbar } from "./Toolbar.js";
 import { SidePanel } from "./SidePanel.js";
+import { PlantCatalog } from "./plant-catalog/PlantCatalog.js";
+import { loadDefaultPlantCatalog } from "./plants/PlantRepository.js";
 import {
   AUTO_COMMIT_ACTIONS,
   makeInitialState,
   reducer,
   type Action,
+  type ActiveTab,
   type SandboxState,
 } from "./state.js";
 import {
@@ -52,6 +56,11 @@ function readInitialTheme(): "light" | "dark" {
 
 // Singleton-adapter — instans-stabil mellan renders.
 const persistenceAdapter = localStorageAdapter();
+
+// Plant-katalogen laddas en gång vid modulen — den är statiskt bundlad och
+// rena pure data. PlantRepository cachar internt, men ge bundle:n ett tidigt
+// validate-pass så ev. JSON-fel kraschar nära mount istället för vid val.
+const PLANT_CATALOG = loadDefaultPlantCatalog();
 
 export function App() {
   const [historyState, dispatch] = useReducer(wrappedReducer, undefined, makeInitialHistory);
@@ -283,45 +292,70 @@ export function App() {
   const onUndo = useCallback(() => dispatch({ type: "undo" }), []);
   const onRedo = useCallback(() => dispatch({ type: "redo" }), []);
 
+  const onTabChange = useCallback((tab: ActiveTab) => {
+    dispatch({ type: "switchTab", tab });
+  }, []);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg-paper)" }}>
-      <Toolbar
-        state={state}
-        dispatch={dispatch}
-        bedDepth={bedDepth}
-        setBedDepth={setBedDepth}
-        sun={sun}
-        totalAreaM2={totalAreaM2}
-        totalSoilL={totalSoilL}
-        overlapCount={overlappingIds.size / 2}
-        touchCount={touchingIds.size / 2}
-        onUndo={onUndo}
-        onRedo={onRedo}
-        canUndo={canUndo(historyState)}
-        canRedo={canRedo(historyState)}
+      <AppHeader
+        activeTab={state.activeTab}
+        onTabChange={onTabChange}
         theme={theme}
         onToggleTheme={onToggleTheme}
-        autoSaveStatus={autoSaveStatus}
-        onResetAutoSaveBaseline={resetBaseline}
-        adapter={persistenceAdapter}
       />
-      <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        <Canvas
-          state={state}
-          dispatch={dispatch}
-          sun={sun}
-          overlappingIds={overlappingIds}
-          touchingIds={touchingIds}
-          theme={theme}
+      {state.activeTab === "planera" ? (
+        <>
+          <Toolbar
+            state={state}
+            dispatch={dispatch}
+            bedDepth={bedDepth}
+            setBedDepth={setBedDepth}
+            sun={sun}
+            totalAreaM2={totalAreaM2}
+            totalSoilL={totalSoilL}
+            overlapCount={overlappingIds.size / 2}
+            touchCount={touchingIds.size / 2}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            canUndo={canUndo(historyState)}
+            canRedo={canRedo(historyState)}
+            autoSaveStatus={autoSaveStatus}
+            onResetAutoSaveBaseline={resetBaseline}
+            adapter={persistenceAdapter}
+          />
+          <div
+            role="tabpanel"
+            id="tabpanel-planera"
+            aria-labelledby="tab-planera"
+            style={{ display: "flex", flex: 1, minHeight: 0 }}
+          >
+            <Canvas
+              state={state}
+              dispatch={dispatch}
+              sun={sun}
+              overlappingIds={overlappingIds}
+              touchingIds={touchingIds}
+              theme={theme}
+            />
+            <SidePanel
+              state={state}
+              bedDepth={bedDepth}
+              dispatch={dispatch}
+              overlappingIds={overlappingIds}
+              touchingIds={touchingIds}
+            />
+          </div>
+        </>
+      ) : (
+        <PlantCatalog
+          plants={PLANT_CATALOG}
+          beds={state.rectangles}
+          selectedPlantId={state.selectedPlantId}
+          plannedPlantIds={state.plannedPlantIds}
+          onSelectPlant={(id) => dispatch({ type: "selectPlant", plantId: id })}
         />
-        <SidePanel
-          state={state}
-          bedDepth={bedDepth}
-          dispatch={dispatch}
-          overlappingIds={overlappingIds}
-          touchingIds={touchingIds}
-        />
-      </div>
+      )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>
   );
