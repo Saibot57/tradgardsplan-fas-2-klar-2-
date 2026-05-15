@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { Canvas } from "./Canvas.js";
 import { Toolbar } from "./Toolbar.js";
 import { SidePanel } from "./SidePanel.js";
-import { makeInitialState, reducer, type Action, type SandboxState } from "./state.js";
+import {
+  AUTO_COMMIT_ACTIONS,
+  makeInitialState,
+  reducer,
+  type Action,
+  type SandboxState,
+} from "./state.js";
 import {
   aabbOverlap,
   bedSoilVolumeLitres,
@@ -21,20 +27,6 @@ import {
 } from "./history.js";
 import { localStorageAdapter } from "./persistence.js";
 import { bootstrapFromAdapter, useAutoSave } from "./useAutoSave.js";
-
-const AUTO_COMMIT_ACTIONS: ReadonlySet<Action["type"]> = new Set<Action["type"]>([
-  "addRect",
-  "removeSelected",
-  "setWallHeight",
-  "setNorthRotation",
-  "setLocation",
-  "setPlotBoundary",
-  "loadScene",
-  "newScene",
-  "setRectMeta",
-  "setRectKind",
-  "duplicateSelected",
-]);
 
 const wrappedReducer = withHistory<SandboxState, Action>(reducer, AUTO_COMMIT_ACTIONS);
 
