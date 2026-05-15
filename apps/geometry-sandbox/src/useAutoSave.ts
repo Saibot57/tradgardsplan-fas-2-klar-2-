@@ -36,6 +36,7 @@ export function useAutoSave(
       plot: { northRotationDeg: state.plot.northRotationDeg, location: state.plot.location },
       boundary: state.plot.boundaryRect,
       rectangles: state.rectangles,
+      plannedPlantIds: state.plannedPlantIds,
     });
     const json = JSON.stringify(scene);
 
@@ -59,7 +60,7 @@ export function useAutoSave(
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [state.rectangles, state.plot, adapter, enabled]);
+  }, [state.rectangles, state.plot, state.plannedPlantIds, adapter, enabled]);
 
   return {
     status,

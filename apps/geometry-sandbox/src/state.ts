@@ -1,13 +1,16 @@
 import {
   roundToWorldMm,
-  type Rect,
   type GeoLocation,
   type ObjectKind,
+  type PlantPlacement,
+  type Rect,
   type SceneV4,
 } from "@kolonitradgard/spatial-core";
 
 /** Minimum width/height for any Rect in the sandbox (precision_policy §7). */
 export const MIN_RECT_DIMENSION_MM = 100;
+
+export type ActiveTab = "planera" | "vaxter";
 
 export interface SandboxState {
   rectangles: Rect[];
@@ -29,6 +32,15 @@ export interface SandboxState {
   };
   snapToGrid: boolean;
   gridStepMm: number;
+  /** Aktiv toppflik. Session-state, ej del av scene-snapshot. */
+  activeTab: ActiveTab;
+  /** Vald växt i katalogen. Session-state, ej i undo-stacken. */
+  selectedPlantId: string | null;
+  /**
+   * Växter som användaren markerat "planera" men inte placerat i någon bädd.
+   * Persisteras i scene (SceneV4.plannedPlantIds) och ingår i undo-stacken.
+   */
+  plannedPlantIds: string[];
 }
 
 /** Convenience: primary selected id (eller null). */
@@ -60,10 +72,48 @@ export type Action =
   | { type: "loadScene"; scene: SceneV4 }
   | { type: "newScene" }
   | { type: "setRectMeta"; id: string; label?: string; notes?: string }
-  | { type: "setRectKind"; id: string; kind: ObjectKind };
+  | { type: "setRectKind"; id: string; kind: ObjectKind }
+  | { type: "switchTab"; tab: ActiveTab }
+  | { type: "selectPlant"; plantId: string | null }
+  | { type: "togglePlannedPlant"; plantId: string }
+  | {
+      type: "addPlantToBed";
+      bedId: string;
+      plantId: string;
+      displayName: string;
+      offsetX?: number;
+      offsetY?: number;
+    }
+  | { type: "removePlantFromBed"; bedId: string; placementId: string }
+  | { type: "showPlantOnCanvas"; plantId: string };
+
+/**
+ * Actions som auto-commitar ett snapshot i `withHistory`-wrappingen.
+ * Importeras av App.tsx och av tester. Drag-bursts (move/rotate/resize)
+ * commitar explicit via `commitHistory` på pointerDown och listas inte här.
+ */
+export const AUTO_COMMIT_ACTIONS: ReadonlySet<Action["type"]> = new Set<Action["type"]>([
+  "addRect",
+  "removeSelected",
+  "setWallHeight",
+  "setNorthRotation",
+  "setLocation",
+  "setPlotBoundary",
+  "loadScene",
+  "newScene",
+  "setRectMeta",
+  "setRectKind",
+  "duplicateSelected",
+  "togglePlannedPlant",
+  "addPlantToBed",
+  "removePlantFromBed",
+]);
 
 let _id = 0;
 export const nextId = (): string => `rect-${++_id}`;
+
+let _placementId = 0;
+export const nextPlacementId = (): string => `placement-${++_placementId}`;
 
 /** TimeSlider-fönster (06–20). Håll i synk med TimeSlider.tsx HOUR_MIN/MAX. */
 export const SUN_HOUR_MIN = 6;
@@ -125,6 +175,9 @@ export function makeInitialState(now: Date = new Date()): SandboxState {
     },
     snapToGrid: false,
     gridStepMm: 100,
+    activeTab: "planera",
+    selectedPlantId: null,
+    plannedPlantIds: [],
   };
 }
 
@@ -301,7 +354,9 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
           location: action.scene.plot.location,
           boundaryRect: action.scene.boundary ?? null,
         },
-        // viewport och sun bevaras (session-state, inte scene-state — ADR-007/008)
+        plannedPlantIds: action.scene.plannedPlantIds,
+        // viewport, sun, activeTab och selectedPlantId bevaras
+        // (session-state, inte scene-state — ADR-007/008)
       };
 
     case "newScene":
@@ -309,6 +364,7 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
         ...state,
         rectangles: [],
         selectedIds: [],
+        plannedPlantIds: [],
         plot: { ...state.plot, boundaryRect: null },
       };
 
@@ -341,5 +397,87 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
           return next;
         }),
       };
+
+    case "switchTab":
+      if (state.activeTab === action.tab) return state;
+      return { ...state, activeTab: action.tab };
+
+    case "selectPlant":
+      if (state.selectedPlantId === action.plantId) return state;
+      return { ...state, selectedPlantId: action.plantId };
+
+    case "togglePlannedPlant": {
+      const exists = state.plannedPlantIds.includes(action.plantId);
+      return {
+        ...state,
+        plannedPlantIds: exists
+          ? state.plannedPlantIds.filter((id) => id !== action.plantId)
+          : [...state.plannedPlantIds, action.plantId],
+      };
+    }
+
+    case "addPlantToBed": {
+      const bed = state.rectangles.find((r) => r.id === action.bedId);
+      if (!bed) return state;
+      const existing = bed.plants?.find((p) => p.plantId === action.plantId);
+      let nextPlants: PlantPlacement[];
+      if (existing) {
+        nextPlants = bed.plants!.map((p) =>
+          p.placementId === existing.placementId ? { ...p, count: p.count + 1 } : p,
+        );
+      } else {
+        const placement: PlantPlacement = {
+          placementId: nextPlacementId(),
+          plantId: action.plantId,
+          displayName: action.displayName,
+          offsetX: Math.round(action.offsetX ?? 0),
+          offsetY: Math.round(action.offsetY ?? 0),
+          count: 1,
+        };
+        nextPlants = [...(bed.plants ?? []), placement];
+      }
+      // Atomic: ta bort plantId ur plannedPlantIds i samma snapshot.
+      const nextPlanned = state.plannedPlantIds.includes(action.plantId)
+        ? state.plannedPlantIds.filter((id) => id !== action.plantId)
+        : state.plannedPlantIds;
+      return {
+        ...state,
+        rectangles: state.rectangles.map((r) =>
+          r.id === action.bedId ? { ...r, plants: nextPlants } : r,
+        ),
+        plannedPlantIds: nextPlanned,
+      };
+    }
+
+    case "removePlantFromBed": {
+      const bed = state.rectangles.find((r) => r.id === action.bedId);
+      if (!bed?.plants) return state;
+      const placement = bed.plants.find((p) => p.placementId === action.placementId);
+      if (!placement) return state;
+      const nextPlants =
+        placement.count > 1
+          ? bed.plants.map((p) =>
+              p.placementId === action.placementId ? { ...p, count: p.count - 1 } : p,
+            )
+          : bed.plants.filter((p) => p.placementId !== action.placementId);
+      return {
+        ...state,
+        rectangles: state.rectangles.map((r) =>
+          r.id === action.bedId ? { ...r, plants: nextPlants } : r,
+        ),
+      };
+    }
+
+    case "showPlantOnCanvas": {
+      const firstBed = state.rectangles.find((r) =>
+        r.plants?.some((p) => p.plantId === action.plantId),
+      );
+      const nextSelected = firstBed ? [firstBed.id] : state.selectedIds;
+      return {
+        ...state,
+        activeTab: "planera",
+        selectedIds: nextSelected,
+      };
+    }
   }
 }
