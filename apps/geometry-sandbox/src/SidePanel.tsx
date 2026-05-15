@@ -23,6 +23,8 @@ import { MIN_RECT_DIMENSION_MM, type Action, type SandboxState } from "./state.j
 import type { HistoryAction } from "./history.js";
 import { IconTrash } from "./icons.js";
 import { fmtInt, fmtNum } from "./format.js";
+import { Row, rowLabelStyle, rowStyle } from "./shared/Row.js";
+import { sectionTitleStyle } from "./shared/SectionTitle.js";
 
 // Midsummer near Landskrona — fixed reference date for aggregate analysis.
 const REFERENCE_DATE = new Date(2025, 5, 21);
@@ -74,49 +76,7 @@ const panelStyle: React.CSSProperties = {
   fontFamily: "var(--font-sans)",
 };
 
-const sectionTitleStyle: React.CSSProperties = {
-  fontSize: 11.5,
-  color: "var(--ink-2)",
-  textTransform: "uppercase",
-  letterSpacing: "0.08em",
-  fontWeight: 500,
-  marginBottom: 6,
-};
-
-const rowStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "baseline",
-  gap: 12,
-  padding: "5px 0",
-};
-
-const rowLabelStyle: React.CSSProperties = {
-  fontSize: 11.5,
-  color: "var(--ink-2)",
-  textTransform: "uppercase",
-  letterSpacing: "0.07em",
-  fontWeight: 500,
-};
-
-const rowValueStyle: React.CSSProperties = {
-  fontFamily: "var(--font-mono)",
-  fontSize: 13.5,
-  color: "var(--ink-1)",
-  fontVariantNumeric: "tabular-nums",
-  textAlign: "right",
-};
-
 const unitStyle: React.CSSProperties = { color: "var(--ink-2)" };
-
-function Row({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div style={rowStyle}>
-      <div style={rowLabelStyle}>{label}</div>
-      <div style={rowValueStyle}>{value}</div>
-    </div>
-  );
-}
 
 const boundaryInputStyle: React.CSSProperties = {
   width: 88,
