@@ -1,14 +1,27 @@
 /**
- * Right panel of the catalog. Header is implemented here; per-attribute
- * sections (Sol & ljus, Temperatur, Vatten & jord, etc.) land in step 6.
+ * Right panel of the catalog. Header + the seven detail sections from
+ * handoff §5. Mutation buttons (Planera toggle, Lägg till i bädd ▾) are
+ * deferred to step 7; "Visa på canvas →" lives inside InMyGardenSection
+ * and is just navigation (no mutation).
  */
 
+import type { Rect } from "@kolonitradgard/spatial-core";
 import type { PlantCareProfile } from "../plants/types.js";
 import { CategoryBadge } from "./primitives/CategoryBadge.js";
 import { PlantThumbnail } from "./primitives/PlantThumbnail.js";
+import { SunLightSection } from "./sections/SunLightSection.js";
+import { TemperatureSection } from "./sections/TemperatureSection.js";
+import { WaterSoilSection } from "./sections/WaterSoilSection.js";
+import { NutrientsSection } from "./sections/NutrientsSection.js";
+import { HumiditySection } from "./sections/HumiditySection.js";
+import { GrowingTipsSection } from "./sections/GrowingTipsSection.js";
+import { InMyGardenSection } from "./sections/InMyGardenSection.js";
 
 interface PlantDetailCardProps {
   plant: PlantCareProfile;
+  beds: readonly Rect[];
+  plannedPlantIds: readonly string[];
+  onShowOnCanvas: (plantId: string) => void;
 }
 
 const cardStyle: React.CSSProperties = {
@@ -44,15 +57,12 @@ const scientificStyle: React.CSSProperties = {
   margin: 0,
 };
 
-const placeholderStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: "var(--ink-2)",
-  fontStyle: "italic",
-  padding: "16px 0",
-  borderTop: "1px solid var(--line-1)",
-};
-
-export function PlantDetailCard({ plant }: PlantDetailCardProps) {
+export function PlantDetailCard({
+  plant,
+  beds,
+  plannedPlantIds,
+  onShowOnCanvas,
+}: PlantDetailCardProps) {
   return (
     <article style={cardStyle}>
       <header style={headerStyle}>
@@ -67,9 +77,18 @@ export function PlantDetailCard({ plant }: PlantDetailCardProps) {
           <p style={scientificStyle}>{plant.scientificName}</p>
         </div>
       </header>
-      <div style={placeholderStyle}>
-        Sektioner (sol & ljus, temperatur, vatten, näring …) landar i nästa steg.
-      </div>
+      <SunLightSection plant={plant} />
+      <TemperatureSection plant={plant} />
+      <WaterSoilSection plant={plant} />
+      <NutrientsSection plant={plant} />
+      <HumiditySection plant={plant} />
+      <GrowingTipsSection plant={plant} />
+      <InMyGardenSection
+        plant={plant}
+        beds={beds}
+        plannedPlantIds={plannedPlantIds}
+        onShowOnCanvas={onShowOnCanvas}
+      />
     </article>
   );
 }

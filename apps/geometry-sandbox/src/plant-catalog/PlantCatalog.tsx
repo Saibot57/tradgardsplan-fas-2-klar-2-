@@ -15,6 +15,7 @@ interface PlantCatalogProps {
   selectedPlantId: string | null;
   plannedPlantIds: readonly string[];
   onSelectPlant: (id: string | null) => void;
+  onShowOnCanvas: (plantId: string) => void;
 }
 
 export function PlantCatalog({
@@ -23,6 +24,7 @@ export function PlantCatalog({
   selectedPlantId,
   plannedPlantIds,
   onSelectPlant,
+  onShowOnCanvas,
 }: PlantCatalogProps) {
   const selected = selectedPlantId
     ? plants.find((p) => p.id === selectedPlantId) ?? null
@@ -64,7 +66,16 @@ export function PlantCatalog({
           background: "var(--bg-paper)",
         }}
       >
-        {selected ? <PlantDetailCard plant={selected} /> : <PlantDetailEmpty />}
+        {selected ? (
+          <PlantDetailCard
+            plant={selected}
+            beds={beds}
+            plannedPlantIds={plannedPlantIds}
+            onShowOnCanvas={onShowOnCanvas}
+          />
+        ) : (
+          <PlantDetailEmpty />
+        )}
       </main>
     </div>
   );
