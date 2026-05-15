@@ -194,3 +194,46 @@ export const IconCherry = (p: IconProps) => (
     <path d="M17 13.5c0-4-3-7-7-8" />
   </Svg>
 );
+
+// ── Plant detail sections (step 6) ──────────────────────────────────
+
+export const IconThermometer = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 4a2 2 0 0 0-4 0v10.5a4 4 0 1 0 4 0V4z" />
+  </Svg>
+);
+
+export const IconDroplet = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3l5 7a6 6 0 1 1-10 0l5-7z" />
+  </Svg>
+);
+
+export const IconFlask = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 3h6" />
+    <path d="M10 3v6L4 19a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-6-10V3" />
+    <path d="M7 14h10" />
+  </Svg>
+);
+
+export const IconWind = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 8h11a3 3 0 1 0-3-3" />
+    <path d="M3 12h15a3 3 0 1 1-3 3" />
+    <path d="M3 16h8" />
+  </Svg>
+);
+
+export const IconMapPin = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 22s-7-7-7-13a7 7 0 1 1 14 0c0 6-7 13-7 13z" />
+    <circle cx="12" cy="9" r="2.5" />
+  </Svg>
+);
+
+export const IconArrowRight = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 12h16M14 6l6 6-6 6" />
+  </Svg>
+);

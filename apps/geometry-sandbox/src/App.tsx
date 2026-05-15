@@ -354,6 +354,7 @@ export function App() {
           selectedPlantId={state.selectedPlantId}
           plannedPlantIds={state.plannedPlantIds}
           onSelectPlant={(id) => dispatch({ type: "selectPlant", plantId: id })}
+          onShowOnCanvas={(plantId) => dispatch({ type: "showPlantOnCanvas", plantId })}
         />
       )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
