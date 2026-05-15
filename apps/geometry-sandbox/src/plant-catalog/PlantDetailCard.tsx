@@ -7,8 +7,10 @@
 
 import type { Rect } from "@kolonitradgard/spatial-core";
 import type { PlantCareProfile } from "../plants/types.js";
+import { IconCheck, IconPlus } from "../icons.js";
 import { CategoryBadge } from "./primitives/CategoryBadge.js";
 import { PlantThumbnail } from "./primitives/PlantThumbnail.js";
+import { AddToBedDropdown } from "./controls/AddToBedDropdown.js";
 import { SunLightSection } from "./sections/SunLightSection.js";
 import { TemperatureSection } from "./sections/TemperatureSection.js";
 import { WaterSoilSection } from "./sections/WaterSoilSection.js";
@@ -22,6 +24,8 @@ interface PlantDetailCardProps {
   beds: readonly Rect[];
   plannedPlantIds: readonly string[];
   onShowOnCanvas: (plantId: string) => void;
+  onTogglePlan: (plantId: string) => void;
+  onAddToBed: (plantId: string, bedId: string) => void;
 }
 
 const cardStyle: React.CSSProperties = {
@@ -54,7 +58,14 @@ const scientificStyle: React.CSSProperties = {
   fontStyle: "italic",
   fontSize: 16,
   color: "var(--ink-2)",
-  margin: 0,
+  margin: "0 0 12px",
+};
+
+const actionRowStyle: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: 8,
+  alignItems: "center",
 };
 
 export function PlantDetailCard({
@@ -62,7 +73,10 @@ export function PlantDetailCard({
   beds,
   plannedPlantIds,
   onShowOnCanvas,
+  onTogglePlan,
+  onAddToBed,
 }: PlantDetailCardProps) {
+  const planned = plannedPlantIds.includes(plant.id);
   return (
     <article style={cardStyle}>
       <header style={headerStyle}>
@@ -75,6 +89,23 @@ export function PlantDetailCard({
           <CategoryBadge category={plant.category} />
           <h2 style={titleStyle}>{plant.commonName}</h2>
           <p style={scientificStyle}>{plant.scientificName}</p>
+          <div style={actionRowStyle}>
+            <button
+              type="button"
+              data-pp-btn
+              data-variant={planned ? "primary" : "ghost"}
+              aria-pressed={planned}
+              onClick={() => onTogglePlan(plant.id)}
+              title={planned ? "Ta bort från planerade" : "Markera som planerad"}
+            >
+              {planned ? <IconCheck size={14} /> : <IconPlus size={14} />}
+              {planned ? " Planerad" : " Planera"}
+            </button>
+            <AddToBedDropdown
+              beds={beds}
+              onSelect={(bedId) => onAddToBed(plant.id, bedId)}
+            />
+          </div>
         </div>
       </header>
       <SunLightSection plant={plant} />
