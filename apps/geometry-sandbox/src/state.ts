@@ -4,7 +4,7 @@ import {
   type ObjectKind,
   type PlantPlacement,
   type Rect,
-  type SceneV4,
+  type SceneV6,
 } from "@kolonitradgard/spatial-core";
 
 /** Minimum width/height for any Rect in the sandbox (precision_policy §7). */
@@ -32,13 +32,27 @@ export interface SandboxState {
   };
   snapToGrid: boolean;
   gridStepMm: number;
+  /**
+   * Visa avståndsmått till ALLA andra objekt under drag/resize, inte bara de
+   * inom default-threshold. Session-state, ej del av scene-snapshot, ej
+   * undo:bart.
+   */
+  showAllMeasurements: boolean;
+  /**
+   * Aktivt verktyg. "select" är default (klicka/dra för att markera+flytta).
+   * "create" → klick+dra på tom yta skapar ny rect med dimensioner enligt drag.
+   * Session-state, ej i undo-stacken.
+   */
+  tool: "select" | "create";
+  /** Vilken kind nya rect:ar får i drag-to-create-läget. Session-state. */
+  createKind: ObjectKind;
   /** Aktiv toppflik. Session-state, ej del av scene-snapshot. */
   activeTab: ActiveTab;
   /** Vald växt i katalogen. Session-state, ej i undo-stacken. */
   selectedPlantId: string | null;
   /**
    * Växter som användaren markerat "planera" men inte placerat i någon bädd.
-   * Persisteras i scene (SceneV4.plannedPlantIds) och ingår i undo-stacken.
+   * Persisteras i scene (SceneV6.plannedPlantIds) och ingår i undo-stacken.
    */
   plannedPlantIds: string[];
 }
@@ -69,10 +83,14 @@ export type Action =
   | { type: "setPlotBoundary"; rect: Rect | null }
   | { type: "setSnapToGrid"; enabled: boolean }
   | { type: "setGridStep"; mm: number }
-  | { type: "loadScene"; scene: SceneV4 }
+  | { type: "setShowAllMeasurements"; enabled: boolean }
+  | { type: "setTool"; tool: "select" | "create" }
+  | { type: "setCreateKind"; kind: ObjectKind }
+  | { type: "loadScene"; scene: SceneV6 }
   | { type: "newScene" }
   | { type: "setRectMeta"; id: string; label?: string; notes?: string }
   | { type: "setRectKind"; id: string; kind: ObjectKind }
+  | { type: "setRectColor"; id: string; color: string | null }
   | { type: "switchTab"; tab: ActiveTab }
   | { type: "selectPlant"; plantId: string | null }
   | { type: "togglePlannedPlant"; plantId: string }
@@ -103,6 +121,7 @@ export const AUTO_COMMIT_ACTIONS: ReadonlySet<Action["type"]> = new Set<Action["
   "newScene",
   "setRectMeta",
   "setRectKind",
+  "setRectColor",
   "duplicateSelected",
   "togglePlannedPlant",
   "addPlantToBed",
@@ -175,6 +194,9 @@ export function makeInitialState(now: Date = new Date()): SandboxState {
     },
     snapToGrid: false,
     gridStepMm: 100,
+    showAllMeasurements: false,
+    tool: "select",
+    createKind: "bed",
     activeTab: "planera",
     selectedPlantId: null,
     plannedPlantIds: [],
@@ -344,6 +366,17 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
     case "setGridStep":
       return { ...state, gridStepMm: Math.max(10, action.mm) };
 
+    case "setShowAllMeasurements":
+      return { ...state, showAllMeasurements: action.enabled };
+
+    case "setTool":
+      if (state.tool === action.tool) return state;
+      return { ...state, tool: action.tool };
+
+    case "setCreateKind":
+      if (state.createKind === action.kind) return state;
+      return { ...state, createKind: action.kind };
+
     case "loadScene":
       return {
         ...state,
@@ -394,6 +427,21 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
           const next: Rect = { ...r, kind: action.kind };
           // Håll JSON minimal: "bed" är default och sparas som frånvaro.
           if (action.kind === "bed") delete next.kind;
+          return next;
+        }),
+      };
+
+    case "setRectColor":
+      return {
+        ...state,
+        rectangles: state.rectangles.map((r) => {
+          if (r.id !== action.id) return r;
+          const next: Rect = { ...r };
+          if (action.color === null || action.color === "") {
+            delete next.color;
+          } else {
+            next.color = action.color;
+          }
           return next;
         }),
       };

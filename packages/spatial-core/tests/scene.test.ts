@@ -28,7 +28,7 @@ describe("scene — serialize/parse roundtrip", () => {
     const serialized = serializeScene(state);
     const parsed = parseScene(serialized);
 
-    expect(parsed.version).toBe(4);
+    expect(parsed.version).toBe(6);
     expect(parsed.rectangles[0]!.cx).toBe(1000);
     expect(parsed.rectangles[0]!.width).toBe(300);
   });
@@ -118,56 +118,80 @@ describe("scene — boundary round-trip", () => {
 });
 
 describe("scene — migrateScene", () => {
-  it("migrateScene v1 → v4 bumps version and adds plannedPlantIds: []", () => {
+  it("migrateScene v1 → v6 bumps version and adds plannedPlantIds: []", () => {
     const v1 = { version: 1 as const, plot: validPlot, rectangles: [validRect] };
-    const v4 = migrateScene(v1);
-    expect(v4.version).toBe(4);
-    expect(v4.rectangles[0]?.cx).toBe(validRect.cx);
-    expect(v4.plannedPlantIds).toEqual([]);
+    const v6 = migrateScene(v1);
+    expect(v6.version).toBe(6);
+    expect(v6.rectangles[0]?.cx).toBe(validRect.cx);
+    expect(v6.plannedPlantIds).toEqual([]);
   });
 
-  it("migrateScene v2 → v4 bumps version", () => {
+  it("migrateScene v2 → v6 bumps version", () => {
     const v2 = { version: 2 as const, plot: validPlot, rectangles: [validRect] };
-    const v4 = migrateScene(v2);
-    expect(v4.version).toBe(4);
-    expect(v4.plannedPlantIds).toEqual([]);
+    const v6 = migrateScene(v2);
+    expect(v6.version).toBe(6);
+    expect(v6.plannedPlantIds).toEqual([]);
   });
 
-  it("migrateScene v3 → v4 adds plannedPlantIds without touching rectangles", () => {
+  it("migrateScene v3 → v6 adds plannedPlantIds without touching rectangles", () => {
     const v3 = { version: 3 as const, plot: validPlot, rectangles: [validRect] };
-    const v4 = migrateScene(v3);
-    expect(v4.version).toBe(4);
-    expect(v4.plannedPlantIds).toEqual([]);
-    // Same rectangle data — migration is transparent at the Rect level.
-    expect(v4.rectangles[0]).toEqual(v3.rectangles[0]);
+    const v6 = migrateScene(v3);
+    expect(v6.version).toBe(6);
+    expect(v6.plannedPlantIds).toEqual([]);
+    expect(v6.rectangles[0]).toEqual(v3.rectangles[0]);
   });
 
-  it("migrateScene is identity for v4", () => {
+  it("migrateScene v4 → v6 bevarar plannedPlantIds och rectangles", () => {
     const v4 = {
       version: 4 as const,
+      plot: validPlot,
+      rectangles: [validRect],
+      plannedPlantIds: ["tomat", "chili"],
+    };
+    const v6 = migrateScene(v4);
+    expect(v6.version).toBe(6);
+    expect(v6.plannedPlantIds).toEqual(["tomat", "chili"]);
+    expect(v6.rectangles[0]).toEqual(v4.rectangles[0]);
+  });
+
+  it("migrateScene v5 → v6 bevarar plannedPlantIds och rectangles", () => {
+    const v5 = {
+      version: 5 as const,
+      plot: validPlot,
+      rectangles: [validRect],
+      plannedPlantIds: ["tomat"],
+    };
+    const v6 = migrateScene(v5);
+    expect(v6.version).toBe(6);
+    expect(v6.plannedPlantIds).toEqual(["tomat"]);
+  });
+
+  it("migrateScene is identity for v6", () => {
+    const v6 = {
+      version: 6 as const,
       plot: validPlot,
       rectangles: [],
       plannedPlantIds: ["tomat"],
     };
-    expect(migrateScene(v4)).toBe(v4);
+    expect(migrateScene(v6)).toBe(v6);
   });
 
-  it("migrateScene v1 → v4 bevarar boundary", () => {
+  it("migrateScene v1 → v6 bevarar boundary", () => {
     const boundary: Rect = {
       id: "plot-boundary",
       cx: 6000, cy: 5000, width: 12000, height: 8000,
       rotationDeg: 0, wallHeight: 0,
     };
     const v1 = { version: 1 as const, plot: validPlot, boundary, rectangles: [] };
-    const v4 = migrateScene(v1);
-    expect(v4.boundary?.id).toBe("plot-boundary");
+    const v6 = migrateScene(v1);
+    expect(v6.boundary?.id).toBe("plot-boundary");
   });
 });
 
-describe("scene v4 — plannedPlantIds", () => {
-  it("serializeScene emits version 4", () => {
+describe("scene v6 — plannedPlantIds", () => {
+  it("serializeScene emits version 6", () => {
     const s = serializeScene({ plot: validPlot, rectangles: [validRect] });
-    expect(s.version).toBe(4);
+    expect(s.version).toBe(6);
   });
 
   it("serializeScene defaults plannedPlantIds to []", () => {
@@ -192,8 +216,8 @@ describe("scene v4 — plannedPlantIds", () => {
         plannedPlantIds: ["pisum-sativum", "capsicum-frutescens"],
       }),
     );
-    expect(parsed.version).toBe(4);
-    if (parsed.version !== 4) throw new Error("expected v4");
+    expect(parsed.version).toBe(6);
+    if (parsed.version !== 6) throw new Error("expected v6");
     expect(parsed.plannedPlantIds).toEqual(["pisum-sativum", "capsicum-frutescens"]);
   });
 
@@ -339,6 +363,114 @@ describe("scene v3 — kind-fält", () => {
     const v2 = { version: 2, plot: validPlot, rectangles: [validRect] };
     const parsed = parseScene(v2);
     expect(parsed.rectangles[0]?.kind).toBeUndefined();
+  });
+});
+
+describe("scene v6 — Rect.color (custom färg-override)", () => {
+  it("serializeScene bevarar color när satt", () => {
+    const r: Rect = { ...validRect, color: "#A1B2C3" };
+    const s = serializeScene({ plot: validPlot, rectangles: [r] });
+    expect(s.rectangles[0]?.color).toBe("#A1B2C3");
+  });
+
+  it("serializeScene utelämnar color när tom/saknad", () => {
+    const s = serializeScene({ plot: validPlot, rectangles: [validRect] });
+    expect(s.rectangles[0]?.color).toBeUndefined();
+  });
+
+  it("round-trip bevarar color", () => {
+    const r: Rect = { ...validRect, color: "#ff8800" };
+    const parsed = parseScene(serializeScene({ plot: validPlot, rectangles: [r] }));
+    expect(parsed.rectangles[0]?.color).toBe("#ff8800");
+  });
+
+  it("parseScene kastar på felaktigt color-format", () => {
+    expect(() =>
+      parseScene({
+        version: 6,
+        plot: validPlot,
+        rectangles: [{ ...validRect, color: "not-hex" }],
+        plannedPlantIds: [],
+      }),
+    ).toThrow(SceneParseError);
+  });
+
+  it("parseScene kastar på color med fel längd", () => {
+    expect(() =>
+      parseScene({
+        version: 6,
+        plot: validPlot,
+        rectangles: [{ ...validRect, color: "#ABC" }],
+        plannedPlantIds: [],
+      }),
+    ).toThrow(SceneParseError);
+  });
+
+  it("parseScene accepterar både små och stora bokstäver", () => {
+    const upper = parseScene({
+      version: 6,
+      plot: validPlot,
+      rectangles: [{ ...validRect, color: "#ABCDEF" }],
+      plannedPlantIds: [],
+    });
+    expect(upper.rectangles[0]?.color).toBe("#ABCDEF");
+  });
+});
+
+describe("scene v6 — nya kinds (grass, paved, gravel, deck)", () => {
+  it("serializeScene bevarar de nya kinds", () => {
+    for (const kind of ["grass", "paved", "gravel", "deck"] as const) {
+      const r: Rect = { ...validRect, kind };
+      const s = serializeScene({ plot: validPlot, rectangles: [r] });
+      expect(s.rectangles[0]?.kind).toBe(kind);
+    }
+  });
+
+  it("parseScene accepterar nya kinds i v6-fil", () => {
+    const v6 = {
+      version: 6,
+      plot: validPlot,
+      rectangles: [{ ...validRect, kind: "grass" }],
+      plannedPlantIds: [],
+    };
+    const parsed = parseScene(v6);
+    expect(parsed.rectangles[0]?.kind).toBe("grass");
+  });
+});
+
+describe("scene v5 — kind 'rabatt'", () => {
+  it("serializeScene bevarar kind='rabatt' i output (utelämnas EJ)", () => {
+    const r: Rect = { ...validRect, kind: "rabatt" };
+    const s = serializeScene({ plot: validPlot, rectangles: [r] });
+    expect(s.rectangles[0]?.kind).toBe("rabatt");
+  });
+
+  it("round-trip serialize → parse bevarar kind='rabatt'", () => {
+    const r: Rect = { ...validRect, kind: "rabatt" };
+    const parsed = parseScene(serializeScene({ plot: validPlot, rectangles: [r] }));
+    expect(parsed.rectangles[0]?.kind).toBe("rabatt");
+  });
+
+  it("parseScene accepterar kind='rabatt' i v5-fil", () => {
+    const v5 = {
+      version: 5,
+      plot: validPlot,
+      rectangles: [{ ...validRect, kind: "rabatt" }],
+      plannedPlantIds: [],
+    };
+    const parsed = parseScene(v5);
+    expect(parsed.rectangles[0]?.kind).toBe("rabatt");
+  });
+
+  it("parseScene accepterar v4-fil utan modifikation", () => {
+    const v4 = {
+      version: 4,
+      plot: validPlot,
+      rectangles: [validRect],
+      plannedPlantIds: [],
+    };
+    const parsed = parseScene(v4);
+    expect(parsed.version).toBe(4);
   });
 });
 

@@ -10,3 +10,4 @@ export * from "./scene.js";
 export * from "./sunHours.js";
 export * from "./kind.js";
 export * from "./containment.js";
+export * from "./distance.js";

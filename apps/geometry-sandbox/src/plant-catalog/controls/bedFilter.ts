@@ -8,12 +8,18 @@
 import { getKind, type Rect } from "@kolonitradgard/spatial-core";
 
 /**
- * Rectangles that the user can plant into. A rect counts as a bed when
- * `getKind(rect) === "bed"` — i.e. either `kind === "bed"` or `kind`
- * absent (default). Buildings, hedges, and surfaces are excluded.
+ * Rectangles that the user can plant into. Inkluderar både `kind === "bed"`
+ * (odlingsbädd, eller default när kind saknas) och `kind === "rabatt"`
+ * (plantbar friland — scene v5). Buildings, hedges och surfaces exkluderas.
+ *
+ * Funktionsnamnet behålls trots utvidgningen — "bed" i denna kontext betyder
+ * "plantbar yta", inte specifikt en odlingsbädd.
  */
 export function bedsAvailableForPlanting(rectangles: readonly Rect[]): Rect[] {
-  return rectangles.filter((r) => getKind(r) === "bed");
+  return rectangles.filter((r) => {
+    const k = getKind(r);
+    return k === "bed" || k === "rabatt";
+  });
 }
 
 export interface BedOption {

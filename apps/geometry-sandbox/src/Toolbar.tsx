@@ -120,16 +120,26 @@ interface KindDefaults {
 }
 export const KIND_DEFAULTS: Readonly<Record<ObjectKind, KindDefaults>> = {
   bed:      { width: 1500, height: 800,  wallHeight: 0    },
+  rabatt:   { width: 2000, height: 1000, wallHeight: 0    },
   building: { width: 3000, height: 2500, wallHeight: 2400 },
   hedge:    { width: 3000, height: 500,  wallHeight: 1500 },
+  grass:    { width: 3000, height: 3000, wallHeight: 0    },
+  paved:    { width: 2000, height: 2000, wallHeight: 0    },
+  gravel:   { width: 2000, height: 2000, wallHeight: 0    },
+  deck:     { width: 3000, height: 2000, wallHeight: 0    },
   surface:  { width: 2000, height: 2000, wallHeight: 0    },
 };
 
 const KIND_LABELS: Readonly<Record<ObjectKind, string>> = {
   bed: "Bädd",
+  rabatt: "Rabatt",
   building: "Byggnad",
   hedge: "Häck",
-  surface: "Underlag",
+  grass: "Gräs",
+  paved: "Stenlagt",
+  gravel: "Grus",
+  deck: "Trädäck",
+  surface: "Annan yta",
 };
 
 export function Toolbar({
@@ -220,7 +230,7 @@ export function Toolbar({
       <div style={{ ...sectionStyle, paddingLeft: 18 }}>
         <button
           data-pp-btn
-          data-variant="primary"
+          data-variant={state.tool === "create" ? "primary" : "primary"}
           onClick={() => setAddOpen((v) => !v)}
           title="Lägg till objekt"
           aria-expanded={addOpen}
@@ -236,6 +246,23 @@ export function Toolbar({
         >
           <IconTrash size={14} />
         </button>
+        {state.tool === "create" && (
+          <span
+            style={{
+              fontSize: 12,
+              color: "var(--accent-sun)",
+              fontFamily: "var(--font-sans)",
+              padding: "2px 8px",
+              border: "1px solid var(--accent-sun)",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+            onClick={() => dispatch({ type: "setTool", tool: "select" })}
+            title="Rita-läget är aktivt — klicka för att avbryta (eller tryck Escape)"
+          >
+            Rita: {KIND_LABELS[state.createKind]} · Esc avbryter
+          </span>
+        )}
       </div>
 
       {addOpen && (
@@ -250,6 +277,11 @@ export function Toolbar({
           onWallHeight={setAddWallHeight}
           onCancel={() => setAddOpen(false)}
           onConfirm={commitAddRect}
+          onStartDrawing={() => {
+            dispatch({ type: "setCreateKind", kind: addKind });
+            dispatch({ type: "setTool", tool: "create" });
+            setAddOpen(false);
+          }}
         />
       )}
 
@@ -466,6 +498,18 @@ export function Toolbar({
           title="Rutnätssteg i mm"
         />
 
+        <label style={inlineLabelStyle} title="Visa avståndsmått till alla objekt under drag, inte bara närmsta">
+          <input
+            type="checkbox"
+            checked={state.showAllMeasurements}
+            onChange={(e) =>
+              dispatch({ type: "setShowAllMeasurements", enabled: e.target.checked })
+            }
+            data-pp-input
+          />
+          <IconRuler size={13} /> Alla mått
+        </label>
+
         <IconCompass size={14} style={{ color: "var(--ink-2)" }} />
         <input
           type="number"
@@ -580,6 +624,7 @@ interface AddRectPopoverProps {
   onWallHeight: (w: number) => void;
   onCancel: () => void;
   onConfirm: () => void;
+  onStartDrawing: () => void;
 }
 
 function AddRectPopover({
@@ -593,9 +638,20 @@ function AddRectPopover({
   onWallHeight,
   onCancel,
   onConfirm,
+  onStartDrawing,
 }: AddRectPopoverProps) {
   const showWallHeight = kind === "building" || kind === "hedge";
-  const orderedKinds: ObjectKind[] = ["bed", "building", "hedge", "surface"];
+  const orderedKinds: ObjectKind[] = [
+    "bed",
+    "rabatt",
+    "building",
+    "hedge",
+    "grass",
+    "paved",
+    "gravel",
+    "deck",
+    "surface",
+  ];
   return (
     <>
       <div
@@ -644,7 +700,11 @@ function AddRectPopover({
         >
           Nytt objekt
         </div>
-        <div style={{ display: "flex", gap: 4 }} role="radiogroup" aria-label="Objekttyp">
+        <div
+          style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}
+          role="radiogroup"
+          aria-label="Objekttyp"
+        >
           {orderedKinds.map((k) => (
             <button
               key={k}
@@ -654,7 +714,7 @@ function AddRectPopover({
               data-pp-btn
               data-variant={kind === k ? "primary" : "ghost"}
               onClick={() => onKind(k)}
-              style={{ flex: 1, fontSize: 12.5, padding: "5px 8px" }}
+              style={{ fontSize: 12.5, padding: "5px 8px" }}
             >
               {KIND_LABELS[k]}
             </button>
@@ -720,13 +780,23 @@ function AddRectPopover({
             </span>
           </label>
         )}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginTop: 4 }}>
-          <button data-pp-btn data-variant="ghost" onClick={onCancel}>
-            Avbryt
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 6, marginTop: 4 }}>
+          <button
+            data-pp-btn
+            data-variant="ghost"
+            onClick={onStartDrawing}
+            title="Stäng dialogen och rita rektangelns area direkt på canvasen"
+          >
+            Rita på canvas
           </button>
-          <button data-pp-btn data-variant="primary" onClick={onConfirm}>
-            Lägg till
-          </button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button data-pp-btn data-variant="ghost" onClick={onCancel}>
+              Avbryt
+            </button>
+            <button data-pp-btn data-variant="primary" onClick={onConfirm}>
+              Lägg till med mått
+            </button>
+          </div>
         </div>
       </div>
     </>

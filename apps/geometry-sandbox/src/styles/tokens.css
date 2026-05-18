@@ -101,6 +101,12 @@
   /* ---------- Semantic: accents ---------- */
   --accent-soil: var(--soil-500);
   --accent-bed:  var(--bed-500);
+  --accent-rabatt: #C2B49A;
+  --accent-grass:  #8AAE5D;
+  --accent-paved:  #9A9890;
+  --accent-gravel: #B5A98B;
+  --accent-deck:   #8A6E4F;
+  --accent-surface: #B5B0A0;
   --accent-sun:  var(--sun-500);
   --accent-sky:  var(--sky-500);
   --accent-wall: var(--wall-500);

@@ -31,18 +31,50 @@ import { PlantThumbnail } from "./plant-catalog/primitives/PlantThumbnail.js";
 // Midsummer near Landskrona — fixed reference date for aggregate analysis.
 const REFERENCE_DATE = new Date(2025, 5, 21);
 
+/**
+ * Default-färg per kind — speglar palette.ts. Används av color-pickern som
+ * fallback-värde när Rect.color saknas, så användaren ser den faktiska
+ * default-färgen i stället för "svart".
+ */
+const KIND_DEFAULT_COLOR: Readonly<Record<ObjectKind, string>> = {
+  bed:      "#6E8C5A",
+  rabatt:   "#C2B49A",
+  building: "#8C8478",
+  hedge:    "#8C8478",
+  grass:    "#8AAE5D",
+  paved:    "#9A9890",
+  gravel:   "#B5A98B",
+  deck:     "#8A6E4F",
+  surface:  "#B5B0A0",
+};
+
+function defaultColorForKind(kind: ObjectKind | null): string {
+  if (!kind) return KIND_DEFAULT_COLOR.bed;
+  return KIND_DEFAULT_COLOR[kind];
+}
+
 const KIND_LABEL: Readonly<Record<ObjectKind, string>> = {
   bed: "Bädd",
+  rabatt: "Rabatt",
   building: "Byggnad",
   hedge: "Häck",
-  surface: "Underlag",
+  grass: "Gräs",
+  paved: "Stenlagt",
+  gravel: "Grus",
+  deck: "Trädäck",
+  surface: "Annan yta",
 };
 
 const KIND_LABEL_PLURAL: Readonly<Record<ObjectKind, string>> = {
   bed: "Bäddar",
+  rabatt: "Rabatter",
   building: "Byggnader",
   hedge: "Häckar",
-  surface: "Underlag",
+  grass: "Gräsmattor",
+  paved: "Stenlagda",
+  gravel: "Grusytor",
+  deck: "Trädäck",
+  surface: "Övriga ytor",
 };
 
 function containmentLabel(c: Containment): { text: string; color: string } {
@@ -165,8 +197,13 @@ export function SidePanel({
   const summary = useMemo(() => {
     const totals: Record<ObjectKind, { count: number; areaM2: number; soilL: number }> = {
       bed:      { count: 0, areaM2: 0, soilL: 0 },
+      rabatt:   { count: 0, areaM2: 0, soilL: 0 },
       building: { count: 0, areaM2: 0, soilL: 0 },
       hedge:    { count: 0, areaM2: 0, soilL: 0 },
+      grass:    { count: 0, areaM2: 0, soilL: 0 },
+      paved:    { count: 0, areaM2: 0, soilL: 0 },
+      gravel:   { count: 0, areaM2: 0, soilL: 0 },
+      deck:     { count: 0, areaM2: 0, soilL: 0 },
       surface:  { count: 0, areaM2: 0, soilL: 0 },
     };
     let outsideCount = 0;
@@ -182,8 +219,13 @@ export function SidePanel({
 
   const totalArea =
     summary.totals.bed.areaM2 +
+    summary.totals.rabatt.areaM2 +
     summary.totals.building.areaM2 +
     summary.totals.hedge.areaM2 +
+    summary.totals.grass.areaM2 +
+    summary.totals.paved.areaM2 +
+    summary.totals.gravel.areaM2 +
+    summary.totals.deck.areaM2 +
     summary.totals.surface.areaM2;
 
   const selectedContainment: Containment | null = useMemo(() => {
@@ -239,7 +281,11 @@ export function SidePanel({
               rows={3}
               style={{ fontSize: 12.5, padding: "5px 8px", resize: "vertical", fontFamily: "var(--font-sans)" }}
             />
-            <div style={{ display: "flex", gap: 4 }} role="radiogroup" aria-label="Objekttyp">
+            <div
+              style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}
+              role="radiogroup"
+              aria-label="Objekttyp"
+            >
               {OBJECT_KINDS.map((k) => (
                 <button
                   key={k}
@@ -249,12 +295,64 @@ export function SidePanel({
                   data-pp-btn
                   data-variant={selectedKind === k ? "primary" : "ghost"}
                   onClick={() => dispatch({ type: "setRectKind", id: selected.id, kind: k })}
-                  style={{ flex: 1, fontSize: 12, padding: "4px 6px" }}
+                  style={{ fontSize: 12, padding: "4px 6px" }}
                   title={`Byt typ till ${KIND_LABEL[k]}`}
                 >
                   {KIND_LABEL[k]}
                 </button>
               ))}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 12.5,
+                color: "var(--ink-2)",
+              }}
+            >
+              <span style={{ textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>
+                Färg
+              </span>
+              <input
+                type="color"
+                value={selected.color ?? defaultColorForKind(selectedKind)}
+                onChange={(e) =>
+                  dispatch({ type: "setRectColor", id: selected.id, color: e.target.value })
+                }
+                title="Egen färg för detta objekt"
+                style={{
+                  width: 36,
+                  height: 28,
+                  padding: 0,
+                  border: "1px solid var(--line-1)",
+                  borderRadius: 4,
+                  background: "transparent",
+                  cursor: "pointer",
+                }}
+              />
+              <button
+                data-pp-btn
+                data-variant="ghost"
+                disabled={!selected.color}
+                onClick={() => dispatch({ type: "setRectColor", id: selected.id, color: null })}
+                style={{ fontSize: 12, padding: "4px 8px" }}
+                title="Återställ till default-färgen för objekttypen"
+              >
+                Återställ
+              </button>
+              {selected.color && (
+                <span
+                  style={{
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--ink-2)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {selected.color}
+                </span>
+              )}
             </div>
           </div>
         </section>
@@ -342,7 +440,7 @@ export function SidePanel({
         </section>
       )}
 
-      {selected && selectedKind === "bed" && (
+      {selected && (selectedKind === "bed" || selectedKind === "rabatt") && (
         <section>
           <div style={sectionTitleStyle}>Soltimmar</div>
           <div
@@ -364,7 +462,7 @@ export function SidePanel({
         </section>
       )}
 
-      {selected && selectedKind === "bed" && (
+      {selected && (selectedKind === "bed" || selectedKind === "rabatt") && (
         <BedPlantsSection
           placements={selected.plants ?? []}
           plants={plants}
@@ -372,6 +470,13 @@ export function SidePanel({
             dispatch({ type: "selectPlant", plantId });
             dispatch({ type: "switchTab", tab: "vaxter" });
           }}
+          onRemove={(placementId) =>
+            dispatch({
+              type: "removePlantFromBed",
+              bedId: selected.id,
+              placementId,
+            })
+          }
         />
       )}
 
@@ -527,6 +632,7 @@ interface BedPlantsSectionProps {
   placements: ReadonlyArray<import("@kolonitradgard/spatial-core").PlantPlacement>;
   plants: readonly PlantCareProfile[];
   onOpenInCatalog: (plantId: string) => void;
+  onRemove: (placementId: string) => void;
 }
 
 const bedPlantRowStyle: React.CSSProperties = {
@@ -543,7 +649,7 @@ const bedPlantRowStyle: React.CSSProperties = {
   color: "var(--ink-1)",
 };
 
-function BedPlantsSection({ placements, plants, onOpenInCatalog }: BedPlantsSectionProps) {
+function BedPlantsSection({ placements, plants, onOpenInCatalog, onRemove }: BedPlantsSectionProps) {
   return (
     <section>
       <div style={sectionTitleStyle}>Växter i bädden ({placements.length})</div>
@@ -559,53 +665,78 @@ function BedPlantsSection({ placements, plants, onOpenInCatalog }: BedPlantsSect
             const category = catalogEntry?.category ?? "vegetable";
             const scientific = catalogEntry?.scientificName ?? "";
             return (
-              <button
+              <div
                 key={p.placementId}
-                type="button"
-                onClick={() => onOpenInCatalog(p.plantId)}
-                title="Öppna i Växter-katalogen"
-                style={bedPlantRowStyle}
+                style={{ display: "flex", alignItems: "center", gap: 4 }}
               >
-                <PlantThumbnail category={category} size={28} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {p.displayName}
-                  </div>
-                  {scientific && (
+                <button
+                  type="button"
+                  onClick={() => onOpenInCatalog(p.plantId)}
+                  title="Öppna i Växter-katalogen"
+                  style={{ ...bedPlantRowStyle, flex: 1 }}
+                >
+                  <PlantThumbnail category={category} size={28} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        fontSize: 11,
-                        color: "var(--ink-2)",
-                        fontStyle: "italic",
+                        fontSize: 13,
+                        fontWeight: 500,
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                       }}
                     >
-                      {scientific}
+                      {p.displayName}
                     </div>
-                  )}
-                </div>
-                <span
+                    {scientific && (
+                      <div
+                        style={{
+                          fontSize: 11,
+                          color: "var(--ink-2)",
+                          fontStyle: "italic",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {scientific}
+                      </div>
+                    )}
+                  </div>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11,
+                      color: "var(--ink-2)",
+                      fontVariantNumeric: "tabular-nums",
+                      flexShrink: 0,
+                    }}
+                  >
+                    ×{p.count}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove(p.placementId);
+                  }}
+                  title={`Ta bort ${p.displayName} från bädden`}
+                  aria-label={`Ta bort ${p.displayName}`}
                   style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 11,
+                    background: "transparent",
+                    border: 0,
+                    cursor: "pointer",
                     color: "var(--ink-2)",
-                    fontVariantNumeric: "tabular-nums",
+                    fontSize: 16,
+                    lineHeight: 1,
+                    padding: "4px 6px",
                     flexShrink: 0,
                   }}
                 >
-                  ×{p.count}
-                </span>
-              </button>
+                  ×
+                </button>
+              </div>
             );
           })}
         </div>

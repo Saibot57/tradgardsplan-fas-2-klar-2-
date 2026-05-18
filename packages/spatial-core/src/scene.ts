@@ -2,7 +2,7 @@ import type { PlantPlacement, PlotConfig, Rect } from "./types.js";
 import { isObjectKind } from "./kind.js";
 
 /** Current scene format version. Bump when schema changes. */
-export const SCENE_VERSION = 4;
+export const SCENE_VERSION = 6;
 
 export interface SceneV1 {
   version: 1;
@@ -53,8 +53,42 @@ export interface SceneV4 {
   plannedPlantIds: string[];
 }
 
+/**
+ * v5 — additivt: `Rect.kind` accepterar nu också `"rabatt"` (plantbar friland).
+ * Strukturellt identiskt med v4; ingen migration utöver versionsbumpning krävs.
+ * v4-filer utan kind=rabatt parsar oförändrat som v5.
+ */
+export interface SceneV5 {
+  version: 5;
+  plot: PlotConfig;
+  boundary?: Rect | null;
+  rectangles: Rect[];
+  plannedPlantIds: string[];
+}
+
+/**
+ * v6 — additivt:
+ *  - `Rect.kind` accepterar fyra nya värden: "grass", "paved", "gravel", "deck"
+ *  - `Rect.color?` — egendefinierad fyllnadsfärg ("#RRGGBB"), overridar default
+ *
+ * Strukturellt identiskt med v5; ingen migration utöver versionsbumpning krävs.
+ */
+export interface SceneV6 {
+  version: 6;
+  plot: PlotConfig;
+  boundary?: Rect | null;
+  rectangles: Rect[];
+  plannedPlantIds: string[];
+}
+
 /** Union type for all known versions — utökas vid framtida migrering. */
-export type Scene = SceneV1 | SceneV2 | SceneV3 | SceneV4;
+export type Scene = SceneV1 | SceneV2 | SceneV3 | SceneV4 | SceneV5 | SceneV6;
+
+/** Validate that a string is a #RRGGBB hex color (lowercase or uppercase). */
+const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
+export function isHexColor(value: unknown): value is string {
+  return typeof value === "string" && HEX_COLOR_REGEX.test(value);
+}
 
 export class SceneParseError extends Error {
   constructor(message: string, public readonly raw: unknown) {
@@ -93,6 +127,10 @@ function canonicalizeRect(r: Rect): Rect {
   if (Array.isArray(r.plants) && r.plants.length > 0) {
     out.plants = r.plants.map(canonicalizePlacement);
   }
+  // color (v6): utelämnas om null/saknat. Format valideras vid parse.
+  if (typeof r.color === "string" && r.color.length > 0) {
+    out.color = r.color;
+  }
   return out;
 }
 
@@ -102,9 +140,9 @@ export function serializeScene(state: {
   boundary?: Rect | null;
   rectangles: Rect[];
   plannedPlantIds?: readonly string[];
-}): SceneV4 {
+}): SceneV6 {
   return {
-    version: 4,
+    version: 6,
     plot: {
       northRotationDeg: Math.round(state.plot.northRotationDeg),
       location: state.plot.location,
@@ -123,7 +161,14 @@ export function parseScene(raw: unknown): Scene {
 
   const obj = raw as Record<string, unknown>;
 
-  if (obj.version !== 1 && obj.version !== 2 && obj.version !== 3 && obj.version !== 4) {
+  if (
+    obj.version !== 1 &&
+    obj.version !== 2 &&
+    obj.version !== 3 &&
+    obj.version !== 4 &&
+    obj.version !== 5 &&
+    obj.version !== 6
+  ) {
     throw new SceneParseError(
       `Unsupported or missing version: ${obj.version}`,
       raw,
@@ -148,10 +193,10 @@ export function parseScene(raw: unknown): Scene {
     validateRect(scene.boundary, raw);
   }
 
-  if (scene.version === 4) {
+  if (scene.version === 4 || scene.version === 5 || scene.version === 6) {
     if (!Array.isArray(scene.plannedPlantIds)) {
       throw new SceneParseError(
-        "plannedPlantIds must be an array of strings (v4)",
+        `plannedPlantIds must be an array of strings (v${scene.version})`,
         raw,
       );
     }
@@ -202,6 +247,15 @@ function validateRect(rect: Rect, raw: unknown): void {
       raw,
     );
   }
+  // color (v6) — om present måste vara en sträng på formen "#RRGGBB".
+  if (rect.color !== undefined) {
+    if (typeof rect.color !== "string" || !HEX_COLOR_REGEX.test(rect.color)) {
+      throw new SceneParseError(
+        `Invalid color: ${String(rect.color)} — must be "#RRGGBB"`,
+        raw,
+      );
+    }
+  }
   // plants (v4) — om present måste vara en korrekt PlantPlacement[].
   if (rect.plants !== undefined) {
     if (!Array.isArray(rect.plants)) {
@@ -240,16 +294,27 @@ function validatePlacement(p: PlantPlacement, raw: unknown): void {
 }
 
 /**
- * Migrate older scene versions to current (v4).
- * v1 → v4: identity at rect level (label/notes optional). Adds plannedPlantIds: [].
- * v2 → v4: identity (kind optional). Adds plannedPlantIds: [].
- * v3 → v4: identity at rect level. Adds plannedPlantIds: [].
- * v4 → v4: returnerar input (samma referens) för billig idempotency-check.
+ * Migrate older scene versions to current (v6).
+ * v1 → v6: identity at rect level (label/notes optional). Adds plannedPlantIds: [].
+ * v2 → v6: identity (kind optional). Adds plannedPlantIds: [].
+ * v3 → v6: identity at rect level. Adds plannedPlantIds: [].
+ * v4 → v6: identity — bumpning bara markerar nytt kind-stöd, struktur oförändrad.
+ * v5 → v6: identity — bumpning bara markerar nya kinds + valfri Rect.color.
+ * v6 → v6: returnerar input (samma referens) för billig idempotency-check.
  */
-export function migrateScene(scene: Scene): SceneV4 {
-  if (scene.version === 4) return scene;
+export function migrateScene(scene: Scene): SceneV6 {
+  if (scene.version === 6) return scene;
+  if (scene.version === 4 || scene.version === 5) {
+    return {
+      version: 6,
+      plot: scene.plot,
+      ...(scene.boundary != null ? { boundary: scene.boundary } : { boundary: null }),
+      rectangles: scene.rectangles,
+      plannedPlantIds: scene.plannedPlantIds,
+    };
+  }
   return {
-    version: 4,
+    version: 6,
     plot: scene.plot,
     ...(scene.boundary != null ? { boundary: scene.boundary } : { boundary: null }),
     rectangles: scene.rectangles,

@@ -5,7 +5,7 @@ import {
   reducer,
   type SandboxState,
 } from "../src/state.js";
-import type { Rect, SceneV4 } from "@kolonitradgard/spatial-core";
+import type { Rect, SceneV6 } from "@kolonitradgard/spatial-core";
 
 function bareState(): SandboxState {
   return makeInitialState(new Date(2026, 4, 15, 12, 0, 0));
@@ -316,23 +316,23 @@ describe("showPlantOnCanvas", () => {
   });
 });
 
-describe("loadScene reads plannedPlantIds (v4)", () => {
+describe("loadScene reads plannedPlantIds (v6)", () => {
   it("replaces plannedPlantIds with scene value", () => {
-    const v4: SceneV4 = {
-      version: 4,
+    const scene: SceneV6 = {
+      version: 6,
       plot: { northRotationDeg: 0, location: { latitudeDeg: 0, longitudeDeg: 0 } },
       boundary: null,
       rectangles: [],
       plannedPlantIds: ["chili"],
     };
     const start: SandboxState = { ...bareState(), plannedPlantIds: ["tomat", "morot"] };
-    const next = reducer(start, { type: "loadScene", scene: v4 });
+    const next = reducer(start, { type: "loadScene", scene });
     expect(next.plannedPlantIds).toEqual(["chili"]);
   });
 
   it("loads rectangles with plants[] preserved", () => {
-    const v4: SceneV4 = {
-      version: 4,
+    const scene: SceneV6 = {
+      version: 6,
       plot: { northRotationDeg: 0, location: { latitudeDeg: 0, longitudeDeg: 0 } },
       boundary: null,
       rectangles: [
@@ -358,7 +358,7 @@ describe("loadScene reads plannedPlantIds (v4)", () => {
       ],
       plannedPlantIds: [],
     };
-    const next = reducer(bareState(), { type: "loadScene", scene: v4 });
+    const next = reducer(bareState(), { type: "loadScene", scene });
     expect(next.rectangles[0]?.plants?.[0]?.count).toBe(3);
   });
 });

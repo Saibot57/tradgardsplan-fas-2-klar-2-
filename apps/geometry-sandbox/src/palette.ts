@@ -8,6 +8,18 @@ export interface CanvasPalette {
   accentSunFill: string;
   accentBed: string;
   accentBedFill: string;
+  accentRabatt: string;
+  accentRabattFill: string;
+  accentGrass: string;
+  accentGrassFill: string;
+  accentPaved: string;
+  accentPavedFill: string;
+  accentGravel: string;
+  accentGravelFill: string;
+  accentDeck: string;
+  accentDeckFill: string;
+  accentSurface: string;
+  accentSurfaceFill: string;
   accentWall: string;
   accentWallFill: string;
   stateDanger: string;
@@ -53,6 +65,12 @@ function withAlpha(hex: string, alpha: number): string {
 export function readCanvasPalette(): CanvasPalette {
   const s = getComputedStyle(document.documentElement);
   const bed = readVar(s, "--accent-bed", "#6E8C5A");
+  const rabatt = readVar(s, "--accent-rabatt", "#C2B49A");
+  const grass = readVar(s, "--accent-grass", "#8AAE5D");
+  const paved = readVar(s, "--accent-paved", "#9A9890");
+  const gravel = readVar(s, "--accent-gravel", "#B5A98B");
+  const deck = readVar(s, "--accent-deck", "#8A6E4F");
+  const surface = readVar(s, "--accent-surface", "#B5B0A0");
   const wall = readVar(s, "--accent-wall", "#8C8478");
   const danger = readVar(s, "--state-danger", "#B23A2A");
   const sun = readVar(s, "--accent-sun", "#D4A24C");
@@ -66,6 +84,18 @@ export function readCanvasPalette(): CanvasPalette {
     accentSunFill: withAlpha(sun, 0.28),
     accentBed: bed,
     accentBedFill: withAlpha(bed, 0.32),
+    accentRabatt: rabatt,
+    accentRabattFill: withAlpha(rabatt, 0.32),
+    accentGrass: grass,
+    accentGrassFill: withAlpha(grass, 0.32),
+    accentPaved: paved,
+    accentPavedFill: withAlpha(paved, 0.40),
+    accentGravel: gravel,
+    accentGravelFill: withAlpha(gravel, 0.40),
+    accentDeck: deck,
+    accentDeckFill: withAlpha(deck, 0.40),
+    accentSurface: surface,
+    accentSurfaceFill: withAlpha(surface, 0.32),
     accentWall: wall,
     accentWallFill: withAlpha(wall, 0.45),
     stateDanger: danger,

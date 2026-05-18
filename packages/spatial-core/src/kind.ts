@@ -13,8 +13,13 @@ export const DEFAULT_OBJECT_KIND: ObjectKind = "bed";
 
 export const OBJECT_KINDS: readonly ObjectKind[] = [
   "bed",
+  "rabatt",
   "building",
   "hedge",
+  "grass",
+  "paved",
+  "gravel",
+  "deck",
   "surface",
 ];
 
@@ -34,8 +39,13 @@ export interface KindRule {
 
 export const KIND_RULES: Readonly<Record<ObjectKind, KindRule>> = {
   bed:      { hasSoil: true,  castsShadow: false },
+  rabatt:   { hasSoil: true,  castsShadow: false },
   building: { hasSoil: false, castsShadow: true  },
   hedge:    { hasSoil: false, castsShadow: true  },
+  grass:    { hasSoil: false, castsShadow: false },
+  paved:    { hasSoil: false, castsShadow: false },
+  gravel:   { hasSoil: false, castsShadow: false },
+  deck:     { hasSoil: false, castsShadow: false },
   surface:  { hasSoil: false, castsShadow: false },
 };
 

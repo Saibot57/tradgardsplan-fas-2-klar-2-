@@ -32,13 +32,33 @@ export interface AABB {
 }
 
 /**
- * Trädgårdsobjekt-typ (ADR-009, scene v3).
+ * Trädgårdsobjekt-typ (ADR-009, scene v3; "rabatt" tillagd scene v5;
+ * "grass"/"paved"/"gravel"/"deck" tillagda scene v6).
  *
  * `kind` är valfri på Rect; saknas värdet tolkas objektet som "bed".
  * Värdet `"wall"` slås medvetet ihop med `"building"` — vi särskiljer dem
  * inte i v1.
+ *
+ * - "bed":      odlingsbädd (upphöjd/avgränsad). Plantbar, ingen skugga.
+ * - "rabatt":   plantbar friland — markområde där växter kan planteras direkt.
+ * - "building": byggnad. Ej plantbar, kastar skugga.
+ * - "hedge":    häck. Ej plantbar, kastar skugga.
+ * - "grass":    gräsmatta. Ej plantbar, ingen skugga.
+ * - "paved":    stenlagd yta. Ej plantbar, ingen skugga.
+ * - "gravel":   grusyta. Ej plantbar, ingen skugga.
+ * - "deck":     trädäck. Ej plantbar, ingen skugga.
+ * - "surface":  generisk yta (fallback). Ej plantbar, ingen skugga.
  */
-export type ObjectKind = "bed" | "building" | "hedge" | "surface";
+export type ObjectKind =
+  | "bed"
+  | "rabatt"
+  | "building"
+  | "hedge"
+  | "grass"
+  | "paved"
+  | "gravel"
+  | "deck"
+  | "surface";
 
 /**
  * The primary spatial object in v1: an oriented (rotated) rectangle.
@@ -69,6 +89,12 @@ export interface Rect {
   kind?: ObjectKind;
   /** Växter placerade i denna bädd (scene v4). Tomt eller saknat == inga växter. */
   plants?: PlantPlacement[];
+  /**
+   * Egendefinierad fyllnadsfärg (scene v6). Saknas == använd kind:s default.
+   * Format: "#RRGGBB" (6 hex-tecken, små bokstäver ok). Validation sker i
+   * scene.parseScene; canvas-renderaren applicerar färgen med alpha-blending.
+   */
+  color?: string;
 }
 
 /**
