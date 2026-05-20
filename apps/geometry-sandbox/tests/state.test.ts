@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { makeInitialState, nextId, reducer, SUN_HOUR_MIN, SUN_HOUR_MAX } from "../src/state.js";
-import { getKind, type Rect } from "@kolonitradgard/spatial-core";
+import { makeInitialState, nextId, nextPlacementId, reducer, SUN_HOUR_MIN, SUN_HOUR_MAX } from "../src/state.js";
+import { getKind, type Rect, type SceneV6 } from "@kolonitradgard/spatial-core";
 
 function hourOf(iso: string): number {
   const d = new Date(iso);
@@ -79,5 +79,55 @@ describe("reducer — kind på Rect (ADR-009)", () => {
     const updated = backToBed.rectangles.find((r) => r.id === id)!;
     expect(updated.kind).toBeUndefined();
     expect(getKind(updated)).toBe("bed");
+  });
+});
+
+describe("reducer — loadScene synkar id-räknare (förhindrar id-krock)", () => {
+  function plainRect(id: string, cx: number): Rect {
+    return { id, cx, cy: 1000, width: 1000, height: 1000, rotationDeg: 0, wallHeight: 0 };
+  }
+
+  function sceneWith(rects: Rect[]): SceneV6 {
+    return {
+      version: 6,
+      plot: makeInitialState().plot,
+      rectangles: rects,
+      plannedPlantIds: [],
+    };
+  }
+
+  it("nextId() krockar inte med id:n från en inläst scen", () => {
+    const loaded = reducer(makeInitialState(), {
+      type: "loadScene",
+      scene: sceneWith([plainRect("rect-50", 1000), plainRect("rect-99", 2000)]),
+    });
+    const existing = new Set(loaded.rectangles.map((r) => r.id));
+    // Nästa fem id:n får inte återanvända ett redan inläst id.
+    for (let i = 0; i < 5; i++) {
+      expect(existing.has(nextId())).toBe(false);
+    }
+  });
+
+  it("addRect efter loadScene ger ett unikt id (inget dubblett-id)", () => {
+    const loaded = reducer(makeInitialState(), {
+      type: "loadScene",
+      scene: sceneWith([plainRect("rect-7", 1000), plainRect("rect-8", 2000)]),
+    });
+    const next = reducer(loaded, { type: "addRect", rect: plainRect(nextId(), 3000) });
+    const ids = next.rectangles.map((r) => r.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("nextPlacementId() krockar inte med placement-id:n i en inläst scen", () => {
+    const bed: Rect = {
+      ...plainRect("rect-3", 1000),
+      plants: [
+        { placementId: "placement-40", plantId: "p1", displayName: "A", offsetX: 0, offsetY: 0, count: 1 },
+      ],
+    };
+    reducer(makeInitialState(), { type: "loadScene", scene: sceneWith([bed]) });
+    for (let i = 0; i < 5; i++) {
+      expect(nextPlacementId()).not.toBe("placement-40");
+    }
   });
 });

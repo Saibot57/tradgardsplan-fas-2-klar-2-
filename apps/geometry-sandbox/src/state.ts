@@ -136,6 +136,30 @@ export const nextId = (): string => `rect-${++_id}`;
 let _placementId = 0;
 export const nextPlacementId = (): string => `placement-${++_placementId}`;
 
+/** Räknar ut högsta numeriska suffix för ett `${prefix}-N`-id, annars 0. */
+const maxIdSuffix = (ids: Iterable<string>, prefix: string): number => {
+  let max = 0;
+  const re = new RegExp(`^${prefix}-(\\d+)$`);
+  for (const id of ids) {
+    const m = re.exec(id);
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return max;
+};
+
+/**
+ * Flyttar id-räknarna framåt så att nästa nextId()/nextPlacementId() aldrig
+ * krockar med id:n från en inläst scen. Räknarna går bara framåt, aldrig bakåt.
+ */
+export const syncIdCounters = (rectangles: readonly Rect[]): void => {
+  _id = Math.max(_id, maxIdSuffix(rectangles.map((r) => r.id), "rect"));
+  const placementIds: string[] = [];
+  for (const r of rectangles) {
+    for (const p of r.plants ?? []) placementIds.push(p.placementId);
+  }
+  _placementId = Math.max(_placementId, maxIdSuffix(placementIds, "placement"));
+};
+
 /** Tidsfönster (06–20). Håll i synk med TimeBar.tsx HOUR_MIN/MAX. */
 export const SUN_HOUR_MIN = 6;
 export const SUN_HOUR_MAX = 20;
@@ -380,6 +404,7 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
       return { ...state, createKind: action.kind };
 
     case "loadScene":
+      syncIdCounters(action.scene.rectangles);
       return {
         ...state,
         rectangles: action.scene.rectangles,
