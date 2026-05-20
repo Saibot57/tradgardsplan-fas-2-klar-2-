@@ -11,12 +11,9 @@ import {
   IconFolderOpen,
   IconGrid,
   IconPlus,
-  IconRotateCCW,
-  IconRotateCW,
   IconRuler,
   IconSave,
   IconSquare,
-  IconTrash,
   IconUndo,
   IconRedo,
 } from "./icons.js";
@@ -85,13 +82,6 @@ const inlineLabelStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
-const valueStyle: React.CSSProperties = {
-  fontFamily: "var(--font-mono)",
-  fontVariantNumeric: "tabular-nums",
-  fontSize: 12.5,
-  color: "var(--ink-1)",
-};
-
 /** Default-mått (mm) per objekttyp för Lägg-till-popovern. */
 interface KindDefaults {
   width: number;
@@ -110,7 +100,7 @@ export const KIND_DEFAULTS: Readonly<Record<ObjectKind, KindDefaults>> = {
   surface:  { width: 2000, height: 2000, wallHeight: 0    },
 };
 
-const KIND_LABELS: Readonly<Record<ObjectKind, string>> = {
+export const KIND_LABELS: Readonly<Record<ObjectKind, string>> = {
   bed: "Bädd",
   rabatt: "Rabatt",
   building: "Byggnad",
@@ -138,7 +128,6 @@ export function Toolbar({
   const autoSave = formatAutoSaveStatus(autoSaveStatus);
   const primaryId = state.selectedIds[0] ?? null;
   const selected = state.rectangles.find((r) => r.id === primaryId);
-  const multiCount = state.selectedIds.length;
 
   const [addOpen, setAddOpen] = useState(false);
   const [addKind, setAddKind] = useState<ObjectKind>("bed");
@@ -208,15 +197,6 @@ export function Toolbar({
           aria-expanded={addOpen}
         >
           <IconPlus size={14} /> Lägg till
-        </button>
-        <button
-          data-pp-btn
-          data-icon-only="true"
-          disabled={!selected}
-          onClick={() => dispatch({ type: "removeSelected" })}
-          title="Ta bort valt objekt"
-        >
-          <IconTrash size={14} />
         </button>
         {state.tool === "create" && (
           <span
@@ -338,37 +318,11 @@ export function Toolbar({
         </span>
       </div>
 
-      {/* Selected rect controls */}
+      {/* Selected rect: vägghöjd-numerik. Rotera/duplicera/ta-bort/bädd↔vägg
+          bor nu i FloatingSelectionToolbar; den exakta numeriken flyttar till
+          inspektorn i inspector-rebuild-slicen. */}
       {selected && (
         <div style={sectionStyle}>
-          <span style={valueStyle}>
-            {selected.label || selected.id}
-            {multiCount > 1 ? ` +${multiCount - 1}` : ""}
-          </span>
-          <button
-            data-pp-btn
-            data-icon-only="true"
-            onClick={() => dispatch({ type: "duplicateSelected" })}
-            title={`Duplicera vald${multiCount > 1 ? "a" : ""} bädd${multiCount > 1 ? "ar" : ""} (⌘D / Ctrl+D)`}
-          >
-            <IconPlus size={14} />
-          </button>
-          <button
-            data-pp-btn
-            data-icon-only="true"
-            onClick={() => dispatch({ type: "rotateSelected", deltaDeg: -15 })}
-            title="Rotera -15°"
-          >
-            <IconRotateCCW size={14} />
-          </button>
-          <button
-            data-pp-btn
-            data-icon-only="true"
-            onClick={() => dispatch({ type: "rotateSelected", deltaDeg: 15 })}
-            title="Rotera +15°"
-          >
-            <IconRotateCW size={14} />
-          </button>
           <span style={labelStyle}>Vägghöjd</span>
           <input
             type="number"

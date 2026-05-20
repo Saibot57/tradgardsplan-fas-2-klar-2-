@@ -2,7 +2,7 @@ import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-run
 import { useState } from "react";
 import { MIN_RECT_DIMENSION_MM, nextId } from "./state.js";
 import { exportCanvasAsPng, loadSceneFromFile, saveScene } from "./io.js";
-import { IconCompass, IconFolderOpen, IconGrid, IconPlus, IconRotateCCW, IconRotateCW, IconRuler, IconSave, IconSquare, IconTrash, IconUndo, IconRedo, } from "./icons.js";
+import { IconCompass, IconFolderOpen, IconGrid, IconPlus, IconRuler, IconSave, IconSquare, IconUndo, IconRedo, } from "./icons.js";
 function formatAutoSaveStatus(s) {
     switch (s.kind) {
         case "idle":
@@ -48,12 +48,6 @@ const inlineLabelStyle = {
     color: "var(--ink-1)",
     cursor: "pointer",
 };
-const valueStyle = {
-    fontFamily: "var(--font-mono)",
-    fontVariantNumeric: "tabular-nums",
-    fontSize: 12.5,
-    color: "var(--ink-1)",
-};
 export const KIND_DEFAULTS = {
     bed: { width: 1500, height: 800, wallHeight: 0 },
     rabatt: { width: 2000, height: 1000, wallHeight: 0 },
@@ -65,7 +59,7 @@ export const KIND_DEFAULTS = {
     deck: { width: 3000, height: 2000, wallHeight: 0 },
     surface: { width: 2000, height: 2000, wallHeight: 0 },
 };
-const KIND_LABELS = {
+export const KIND_LABELS = {
     bed: "Bädd",
     rabatt: "Rabatt",
     building: "Byggnad",
@@ -80,7 +74,6 @@ export function Toolbar({ state, dispatch, bedDepth, setBedDepth, onUndo, onRedo
     const autoSave = formatAutoSaveStatus(autoSaveStatus);
     const primaryId = state.selectedIds[0] ?? null;
     const selected = state.rectangles.find((r) => r.id === primaryId);
-    const multiCount = state.selectedIds.length;
     const [addOpen, setAddOpen] = useState(false);
     const [addKind, setAddKind] = useState("bed");
     const [addWidth, setAddWidth] = useState(KIND_DEFAULTS.bed.width);
@@ -133,7 +126,7 @@ export function Toolbar({ state, dispatch, bedDepth, setBedDepth, onUndo, onRedo
             overflowX: "auto",
             flexShrink: 0,
             fontFamily: "var(--font-sans)",
-        }, children: [_jsxs("div", { style: { ...sectionStyle, paddingLeft: 18 }, children: [_jsxs("button", { "data-pp-btn": true, "data-variant": state.tool === "create" ? "primary" : "primary", onClick: () => setAddOpen((v) => !v), title: "L\u00E4gg till objekt", "aria-expanded": addOpen, children: [_jsx(IconPlus, { size: 14 }), " L\u00E4gg till"] }), _jsx("button", { "data-pp-btn": true, "data-icon-only": "true", disabled: !selected, onClick: () => dispatch({ type: "removeSelected" }), title: "Ta bort valt objekt", children: _jsx(IconTrash, { size: 14 }) }), state.tool === "create" && (_jsxs("span", { style: {
+        }, children: [_jsxs("div", { style: { ...sectionStyle, paddingLeft: 18 }, children: [_jsxs("button", { "data-pp-btn": true, "data-variant": state.tool === "create" ? "primary" : "primary", onClick: () => setAddOpen((v) => !v), title: "L\u00E4gg till objekt", "aria-expanded": addOpen, children: [_jsx(IconPlus, { size: 14 }), " L\u00E4gg till"] }), state.tool === "create" && (_jsxs("span", { style: {
                             fontSize: 12,
                             color: "var(--accent-sun)",
                             fontFamily: "var(--font-sans)",
@@ -164,7 +157,7 @@ export function Toolbar({ state, dispatch, bedDepth, setBedDepth, onUndo, onRedo
                             whiteSpace: "nowrap",
                         }, title: autoSaveStatus.kind === "saved"
                             ? `Senast sparat ${new Date(autoSaveStatus.at).toLocaleString("sv-SE")}`
-                            : autoSave.text, children: autoSave.text })] }), selected && (_jsxs("div", { style: sectionStyle, children: [_jsxs("span", { style: valueStyle, children: [selected.label || selected.id, multiCount > 1 ? ` +${multiCount - 1}` : ""] }), _jsx("button", { "data-pp-btn": true, "data-icon-only": "true", onClick: () => dispatch({ type: "duplicateSelected" }), title: `Duplicera vald${multiCount > 1 ? "a" : ""} bädd${multiCount > 1 ? "ar" : ""} (⌘D / Ctrl+D)`, children: _jsx(IconPlus, { size: 14 }) }), _jsx("button", { "data-pp-btn": true, "data-icon-only": "true", onClick: () => dispatch({ type: "rotateSelected", deltaDeg: -15 }), title: "Rotera -15\u00B0", children: _jsx(IconRotateCCW, { size: 14 }) }), _jsx("button", { "data-pp-btn": true, "data-icon-only": "true", onClick: () => dispatch({ type: "rotateSelected", deltaDeg: 15 }), title: "Rotera +15\u00B0", children: _jsx(IconRotateCW, { size: 14 }) }), _jsx("span", { style: labelStyle, children: "V\u00E4ggh\u00F6jd" }), _jsx("input", { type: "number", value: selected.wallHeight, onChange: (e) => dispatch({
+                            : autoSave.text, children: autoSave.text })] }), selected && (_jsxs("div", { style: sectionStyle, children: [_jsx("span", { style: labelStyle, children: "V\u00E4ggh\u00F6jd" }), _jsx("input", { type: "number", value: selected.wallHeight, onChange: (e) => dispatch({
                             type: "setWallHeight",
                             id: selected.id,
                             mm: Number(e.target.value) || 0,

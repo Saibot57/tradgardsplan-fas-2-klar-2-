@@ -32,6 +32,10 @@ import {
 } from "./Handles.js";
 import type { HistoryAction } from "./history.js";
 import { readCanvasPalette, type CanvasPalette } from "./palette.js";
+import {
+  FloatingSelectionToolbar,
+  type FloatingPlacement,
+} from "./FloatingSelectionToolbar.js";
 
 interface Props {
   state: SandboxState;
@@ -720,6 +724,32 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
     });
   };
 
+  // Floating selection toolbar — positioneras i skärm-px ovanför primary-rect:s
+  // bounding-box. Följer rektangeln även under drag (re-render per state- change).
+  const primaryFloatId = state.selectedIds[0] ?? null;
+  const primaryFloatRect = primaryFloatId
+    ? state.rectangles.find((r) => r.id === primaryFloatId) ?? null
+    : null;
+  let floatingPlacement: FloatingPlacement | null = null;
+  if (primaryFloatRect) {
+    const sc = rectCorners(primaryFloatRect).map((c) => worldToScreen(c, state.viewport));
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const p of sc) {
+      if (p.x < minX) minX = p.x;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const PILL_H = 36;
+    const GAP = 8;
+    const cw = containerRef.current?.clientWidth ?? 0;
+    const centerX = (minX + maxX) / 2;
+    const aboveTop = minY - GAP - PILL_H;
+    const top = aboveTop >= 4 ? aboveTop : maxY + GAP;
+    const left = cw > 180 ? Math.max(90, Math.min(cw - 90, centerX)) : centerX;
+    floatingPlacement = { left, top };
+  }
+
   return (
     <div
       ref={containerRef}
@@ -733,6 +763,14 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
         onPointerUp={onPointerUp}
         onWheel={onWheel}
       />
+      {primaryFloatRect && floatingPlacement && (
+        <FloatingSelectionToolbar
+          rect={primaryFloatRect}
+          selectedCount={state.selectedIds.length}
+          placement={floatingPlacement}
+          dispatch={dispatch}
+        />
+      )}
     </div>
   );
 }

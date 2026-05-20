@@ -1,4 +1,4 @@
-import { jsx as _jsx } from "react/jsx-runtime";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useRef, useState } from "react";
 import { getKind, localToWorld, rectCorners, projectShadow, sampleSunHourly, snapToGrid, worldToScreen, screenToWorld, worldToLocal, } from "@kolonitradgard/spatial-core";
 import { computeBoundaryMeasurements, computeNeighborMeasurements, NEIGHBOR_DISTANCE_THRESHOLD_MM, } from "./measurementOverlay.js";
@@ -7,6 +7,7 @@ import { MIN_RECT_DIMENSION_MM, nextId } from "./state.js";
 import { KIND_DEFAULTS } from "./Toolbar.js";
 import { computeResizedRect, computeRotation, drawHandles, hitTestHandle, } from "./Handles.js";
 import { readCanvasPalette } from "./palette.js";
+import { FloatingSelectionToolbar, } from "./FloatingSelectionToolbar.js";
 /** Hit-test */
 function pointInRect(p, rect) {
     const local = worldToLocal(p, rect);
@@ -582,7 +583,36 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
             viewport: { panX: newPanX, panY: newPanY, pixelsPerMm: newZoom },
         });
     };
-    return (_jsx("div", { ref: containerRef, style: { flex: 1, overflow: "hidden", position: "relative" }, children: _jsx("canvas", { ref: canvasRef, style: { display: "block" }, onPointerDown: onPointerDown, onPointerMove: onPointerMove, onPointerUp: onPointerUp, onWheel: onWheel }) }));
+    // Floating selection toolbar — positioneras i skärm-px ovanför primary-rect:s
+    // bounding-box. Följer rektangeln även under drag (re-render per state- change).
+    const primaryFloatId = state.selectedIds[0] ?? null;
+    const primaryFloatRect = primaryFloatId
+        ? state.rectangles.find((r) => r.id === primaryFloatId) ?? null
+        : null;
+    let floatingPlacement = null;
+    if (primaryFloatRect) {
+        const sc = rectCorners(primaryFloatRect).map((c) => worldToScreen(c, state.viewport));
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const p of sc) {
+            if (p.x < minX)
+                minX = p.x;
+            if (p.x > maxX)
+                maxX = p.x;
+            if (p.y < minY)
+                minY = p.y;
+            if (p.y > maxY)
+                maxY = p.y;
+        }
+        const PILL_H = 36;
+        const GAP = 8;
+        const cw = containerRef.current?.clientWidth ?? 0;
+        const centerX = (minX + maxX) / 2;
+        const aboveTop = minY - GAP - PILL_H;
+        const top = aboveTop >= 4 ? aboveTop : maxY + GAP;
+        const left = cw > 180 ? Math.max(90, Math.min(cw - 90, centerX)) : centerX;
+        floatingPlacement = { left, top };
+    }
+    return (_jsxs("div", { ref: containerRef, style: { flex: 1, overflow: "hidden", position: "relative" }, children: [_jsx("canvas", { ref: canvasRef, style: { display: "block" }, onPointerDown: onPointerDown, onPointerMove: onPointerMove, onPointerUp: onPointerUp, onWheel: onWheel }), primaryFloatRect && floatingPlacement && (_jsx(FloatingSelectionToolbar, { rect: primaryFloatRect, selectedCount: state.selectedIds.length, placement: floatingPlacement, dispatch: dispatch }))] }));
 }
 function drawGrid(ctx, w, h, vp, palette) {
     const stepMm = 1000;

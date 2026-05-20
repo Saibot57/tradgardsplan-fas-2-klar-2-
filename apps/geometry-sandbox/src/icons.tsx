@@ -133,6 +133,20 @@ export const IconEyeOff = (p: IconProps) => (
   </Svg>
 );
 
+export const IconCopy = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2" />
+  </Svg>
+);
+
+export const IconWall = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="1" />
+    <path d="M3 10h18M3 14.5h18M8.5 5v5M15.5 5v5M5.5 10v4.5M12 10v4.5M18.5 10v4.5" />
+  </Svg>
+);
+
 export const IconCalendar = (p: IconProps) => (
   <Svg {...p}>
     <rect x="3" y="4" width="18" height="18" rx="2" />

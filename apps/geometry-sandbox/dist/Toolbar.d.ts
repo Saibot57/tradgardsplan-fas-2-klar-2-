@@ -24,5 +24,6 @@ interface KindDefaults {
     wallHeight: number;
 }
 export declare const KIND_DEFAULTS: Readonly<Record<ObjectKind, KindDefaults>>;
+export declare const KIND_LABELS: Readonly<Record<ObjectKind, string>>;
 export declare function Toolbar({ state, dispatch, bedDepth, setBedDepth, onUndo, onRedo, canUndo, canRedo, autoSaveStatus, onResetAutoSaveBaseline, adapter, }: Props): import("react/jsx-runtime").JSX.Element;
 export {};
