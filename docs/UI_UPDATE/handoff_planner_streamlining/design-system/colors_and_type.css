@@ -1,0 +1,396 @@
+/* ============================================================
+   PlotPlaner — Design tokens (v2 — Montserrat + Cabin)
+   colors_and_type.css
+
+   Base tokens (palette, type scale, spacing) and semantic
+   tokens (button-bg, body, h1, etc) on the same sheet.
+
+   Light "paper" mode is default. Dark "evening" mode is opt-in
+   via [data-theme="dark"] on a parent (usually <html> or <body>).
+   ============================================================ */
+
+/* --- Fonts ---
+   Brand pairing:
+     • Montserrat — display / headings / wordmark (variable wght 100–900 + italic)
+     • Cabin       — body / UI (variable wght + width)
+     • JetBrains Mono — measurements, code (Google Fonts)
+     • Instrument Serif — optional editorial display (marketing pull quotes)
+   Self-hosted brand fonts live in /fonts.
+*/
+@font-face {
+  font-family: "Montserrat";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/Montserrat-VariableFont_wght.ttf") format("truetype-variations"),
+       url("fonts/Montserrat-VariableFont_wght.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Montserrat";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("fonts/Montserrat-Italic-VariableFont_wght.ttf") format("truetype-variations"),
+       url("fonts/Montserrat-Italic-VariableFont_wght.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Cabin";
+  font-style: normal;
+  font-weight: 400 700;
+  font-stretch: 75% 100%;
+  font-display: swap;
+  src: url("fonts/Cabin-VariableFont_wdth_wght.ttf") format("truetype-variations"),
+       url("fonts/Cabin-VariableFont_wdth_wght.ttf") format("truetype");
+}
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* ---------- Palette: base ---------- */
+
+  /* Paper & ink */
+  --paper-50:  #FBF8F2;   /* surface (cards, panels) */
+  --paper-100: #F4EFE6;   /* page background */
+  --paper-200: #ECE5D4;   /* hover surface */
+  --paper-300: #D8D1C0;   /* hairline borders */
+  --paper-400: #B8B19E;   /* disabled */
+  --paper-500: #8E8775;
+  --ink-900:   #1F2419;   /* primary ink */
+  --ink-700:   #2F3527;
+  --ink-500:   #5B5C50;   /* soft ink — labels */
+  --ink-400:   #7D7E70;
+  --ink-300:   #9C9D8E;
+
+  /* Soil — terracotta */
+  --soil-100:  #F2DDD0;
+  --soil-300:  #DA9776;
+  --soil-500:  #B5562E;   /* primary */
+  --soil-700:  #8C3F1F;
+  --soil-900:  #5C2914;
+
+  /* Bed — sage */
+  --bed-100:   #DDE5D2;
+  --bed-300:   #A6BB8E;
+  --bed-500:   #6E8C5A;   /* primary */
+  --bed-700:   #4F6B3E;
+  --bed-900:   #2E4022;
+
+  /* Sun — ochre */
+  --sun-100:   #F3E2B7;
+  --sun-300:   #E2BF74;
+  --sun-500:   #D4A24C;   /* primary */
+  --sun-700:   #A87C2A;
+  --sun-900:   #6B4D15;
+
+  /* Sky — slate blue (information / sun-az axis) */
+  --sky-100:   #D9E2E8;
+  --sky-300:   #9DB3BF;
+  --sky-500:   #6B8A9E;   /* primary */
+  --sky-700:   #46647A;
+  --sky-900:   #233846;
+
+  /* Wall — warm grey (inert structure) */
+  --wall-100:  #E4DFD7;
+  --wall-300:  #B6AEA2;
+  --wall-500:  #8C8478;   /* primary */
+  --wall-700:  #5F5849;
+  --wall-900:  #322D24;
+
+  /* State */
+  --danger-100: #F4D9D2;
+  --danger-500: #B23A2A;
+  --danger-700: #80261B;
+
+  --success-100: #DCE6CF;
+  --success-500: #4F7A3F;
+  --success-700: #34552A;
+
+  /* ---------- Semantic: surfaces ---------- */
+  --bg-paper:    var(--paper-100);
+  --bg-surface:  var(--paper-50);
+  --bg-hover:    var(--paper-200);
+  --bg-canvas:   #ECE5D4;   /* the drawing area itself, faintly distinct from chrome */
+  --line-1:      var(--paper-300);
+  --line-2:      var(--paper-400);
+
+  /* ---------- Semantic: ink ---------- */
+  --ink-1: var(--ink-900);
+  --ink-2: var(--ink-500);
+  --ink-3: var(--ink-400);
+  --ink-disabled: var(--paper-400);
+
+  /* ---------- Semantic: accents ---------- */
+  --accent-soil: var(--soil-500);
+  --accent-bed:  var(--bed-500);
+  --accent-sun:  var(--sun-500);
+  --accent-sky:  var(--sky-500);
+  --accent-wall: var(--wall-500);
+
+  --state-danger:  var(--danger-500);
+  --state-success: var(--success-500);
+
+  /* ---------- Primary action ---------- */
+  --button-bg: var(--ink-900);
+  --button-fg: var(--paper-50);
+  --button-bg-hover: var(--ink-700);
+  --button-bg-press: #14180F;
+
+  --button-secondary-bg: var(--paper-50);
+  --button-secondary-fg: var(--ink-900);
+  --button-secondary-border: var(--paper-300);
+  --button-secondary-bg-hover: var(--paper-200);
+
+  /* ---------- Type families ---------- */
+  /* Brand body/UI. Cabin — humanist sans with variable width, easy at small sizes. */
+  --font-sans:    "Cabin", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  /* Brand display. Montserrat — geometric, used for headings, the wordmark, and big numbers. */
+  --font-display: "Montserrat", "Cabin", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  /* Optional editorial display — marketing pull quotes only. */
+  --font-display-editorial: "Instrument Serif", "Iowan Old Style", "Times New Roman", serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+
+  /* ---------- Type scale (1.2 ratio, base 16) ---------- */
+  --text-xs:   12px;   /* labels, helper text */
+  --text-sm:   13px;   /* toolbar text, small buttons */
+  --text-base: 15px;   /* body */
+  --text-md:   17px;   /* lead paragraphs */
+  --text-lg:   21px;   /* h4 */
+  --text-xl:   28px;   /* h3 */
+  --text-2xl:  38px;   /* h2 */
+  --text-3xl:  52px;   /* h1, marketing hero */
+  --text-4xl:  72px;   /* display, landing hero */
+
+  /* Line heights */
+  --leading-tight: 1.15;
+  --leading-snug:  1.30;
+  --leading-body:  1.55;
+  --leading-loose: 1.75;
+
+  /* Letter spacing */
+  --tracking-display: -0.02em;
+  --tracking-tight:   -0.01em;
+  --tracking-normal:  0;
+  --tracking-caps:    0.08em;
+
+  /* ---------- Spacing (4 px base) ---------- */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-7:   32px;
+  --space-8:   40px;
+  --space-9:   48px;
+  --space-10:  64px;
+  --space-11:  80px;
+  --space-12:  96px;
+
+  /* ---------- Radii ---------- */
+  --radius-1: 2px;    /* inputs, chips */
+  --radius-2: 4px;    /* buttons */
+  --radius-3: 8px;    /* cards, panels */
+  --radius-4: 12px;   /* dialogs */
+  --radius-pill: 999px;
+
+  /* ---------- Shadows ---------- */
+  --shadow-1: 0 1px 2px rgba(15, 17, 12, 0.06);
+  --shadow-2: 0 4px 16px rgba(15, 17, 12, 0.08), 0 1px 3px rgba(15, 17, 12, 0.04);
+  --shadow-3: 0 16px 48px rgba(15, 17, 12, 0.14), 0 2px 6px rgba(15, 17, 12, 0.06);
+  --shadow-focus: 0 0 0 2px var(--accent-sun);
+
+  /* ---------- Layout constants ---------- */
+  --layout-toolbar-h: 56px;
+  --layout-sidepanel-w: 320px;
+  --layout-statusbar-h: 32px;
+  --layout-page-max: 1200px;
+
+  /* ---------- Motion ---------- */
+  --duration-fast:   120ms;
+  --duration-base:   180ms;
+  --duration-slow:   260ms;
+  --ease-out:        cubic-bezier(0.2, 0.6, 0.2, 1);
+  --ease-out-soft:   cubic-bezier(0.16, 0.84, 0.44, 1);
+}
+
+/* ============================================================
+   Dark "evening" mode
+   ============================================================ */
+[data-theme="dark"] {
+  --paper-50:  #1F221A;
+  --paper-100: #15170F;
+  --paper-200: #25281F;
+  --paper-300: #2E3225;
+  --paper-400: #4A4D3E;
+  --paper-500: #6C6F5E;
+  --ink-900:   #EAE5D6;
+  --ink-700:   #D0CCBE;
+  --ink-500:   #A8A89A;
+  --ink-400:   #888979;
+  --ink-300:   #6E6F61;
+
+  --soil-500:  #C76A3F;
+  --bed-500:   #8AAB72;
+  --sun-500:   #E7B85F;
+  --sky-500:   #86A4B8;
+  --wall-500:  #A39C8E;
+
+  --danger-500: #E2614C;
+  --success-500: #7AA968;
+
+  --bg-paper:   var(--paper-100);
+  --bg-surface: var(--paper-50);
+  --bg-hover:   var(--paper-200);
+  --bg-canvas:  #1A1C14;
+  --line-1:     var(--paper-300);
+  --line-2:     var(--paper-400);
+
+  --button-bg: var(--paper-50);
+  --button-fg: var(--ink-900);
+  --button-bg-hover: var(--paper-200);
+  --button-bg-press: var(--paper-300);
+
+  --button-secondary-bg: transparent;
+  --button-secondary-fg: var(--ink-900);
+  --button-secondary-border: var(--paper-300);
+  --button-secondary-bg-hover: var(--paper-200);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-3: 0 16px 48px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* ============================================================
+   Base element styles — opt-in by adding the `pp-prose` class
+   or applying `<body class="pp">`.
+   ============================================================ */
+
+.pp, .pp * { box-sizing: border-box; }
+
+.pp body, body.pp {
+  margin: 0;
+  background: var(--bg-paper);
+  color: var(--ink-1);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Semantic typography ---- */
+
+.pp-display {
+  font-family: var(--font-display);
+  font-size: var(--text-4xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+  color: var(--ink-1);
+  font-weight: 600;
+}
+
+.pp-h1, h1.pp {
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+  color: var(--ink-1);
+  font-weight: 600;
+  margin: 0 0 var(--space-5);
+}
+
+.pp-h2, h2.pp {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xl);
+  line-height: var(--leading-snug);
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink-1);
+  font-weight: 600;
+  margin: 0 0 var(--space-4);
+}
+
+.pp-h3, h3.pp {
+  font-family: var(--font-sans);
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  color: var(--ink-1);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+}
+
+.pp-h4, h4.pp {
+  font-family: var(--font-sans);
+  font-size: var(--text-lg);
+  line-height: var(--leading-snug);
+  color: var(--ink-1);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+
+.pp-body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  color: var(--ink-1);
+}
+
+.pp-lead {
+  font-family: var(--font-sans);
+  font-size: var(--text-md);
+  line-height: var(--leading-body);
+  color: var(--ink-2);
+}
+
+.pp-small {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-body);
+  color: var(--ink-2);
+}
+
+.pp-label {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  color: var(--ink-2);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  font-weight: 500;
+}
+
+.pp-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-feature-settings: "tnum", "zero";
+  color: var(--ink-1);
+}
+
+.pp-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.pp-quote {
+  font-family: var(--font-display-editorial);
+  font-style: italic;
+  font-size: var(--text-xl);
+  line-height: var(--leading-snug);
+  color: var(--ink-1);
+}
+
+/* ---- Focus ---- */
+.pp :focus-visible {
+  outline: 2px solid var(--accent-sun);
+  outline-offset: 2px;
+  border-radius: var(--radius-1);
+}
+
+/* ---- Reduced motion ---- */
+@media (prefers-reduced-motion: reduce) {
+  .pp *, .pp *::before, .pp *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

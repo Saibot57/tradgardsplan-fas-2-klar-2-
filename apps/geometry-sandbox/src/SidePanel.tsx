@@ -2,7 +2,7 @@
  * SidePanel — per-bed inspector.
  *
  * Aggregate summer sun hours use a fixed reference date (midsummer)
- * and are INDEPENDENT of TimeSlider (which controls interactive shadow
+ * and are INDEPENDENT of the TimeBar (which controls interactive shadow
  * preview). The two are never collapsed into a shared state field.
  */
 

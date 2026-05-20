@@ -1,0 +1,1544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PlotPlaner — Streamlining Audit</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Cabin:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+:root {
+  --paper-50: #FBF8F2; --paper-100: #F4EFE6; --paper-200: #ECE5D4;
+  --paper-300: #D8D1C0; --paper-400: #B8B19E; --paper-500: #8E8775;
+  --ink-900: #1F2419; --ink-700: #2F3527; --ink-500: #5B5C50;
+  --ink-400: #7D7E70; --ink-300: #9C9D8E;
+
+  --soil-100: #F2DDD0; --soil-300: #DA9776; --soil-500: #B5562E; --soil-700: #8C3F1F; --soil-900: #5C2914;
+  --bed-100:  #DDE5D2; --bed-300:  #A6BB8E; --bed-500:  #6E8C5A; --bed-700:  #4F6B3E; --bed-900:  #2E4022;
+  --sun-100:  #F3E2B7; --sun-300:  #E2BF74; --sun-500:  #D4A24C; --sun-700:  #A87C2A; --sun-900:  #6B4D15;
+  --sky-100:  #D9E2E8; --sky-300:  #9DB3BF; --sky-500:  #6B8A9E; --sky-700:  #46647A; --sky-900:  #233846;
+  --wall-100: #E4DFD7; --wall-300: #B6AEA2; --wall-500: #8C8478; --wall-700: #5F5849; --wall-900: #322D24;
+  --danger-100: #F4D9D2; --danger-500: #B23A2A; --danger-700: #80261B;
+  --success-500: #4F7A3F;
+
+  --bg-paper: var(--paper-100); --bg-surface: var(--paper-50); --bg-hover: var(--paper-200);
+  --bg-canvas: #ECE5D4; --line-1: var(--paper-300); --line-2: var(--paper-400);
+  --ink-1: var(--ink-900); --ink-2: var(--ink-500); --ink-3: var(--ink-400);
+
+  --accent-soil: var(--soil-500); --accent-bed: var(--bed-500); --accent-sun: var(--sun-500);
+  --accent-sky: var(--sky-500); --accent-wall: var(--wall-500);
+  --state-danger: var(--danger-500); --state-success: var(--success-500);
+
+  --font-sans: "Cabin", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-display: "Montserrat", "Cabin", system-ui, sans-serif;
+  --font-display-editorial: "Instrument Serif", "Iowan Old Style", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  --radius-1: 2px; --radius-2: 4px; --radius-3: 8px; --radius-4: 12px; --radius-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(15,17,12,0.06);
+  --shadow-2: 0 4px 16px rgba(15,17,12,0.08), 0 1px 3px rgba(15,17,12,0.04);
+  --shadow-3: 0 16px 48px rgba(15,17,12,0.14), 0 2px 6px rgba(15,17,12,0.06);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg-paper); color: var(--ink-1);
+  font-family: var(--font-sans); font-size: 15px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+a { color: inherit; }
+
+.cover {
+  min-height: 92vh; padding: 96px 96px 80px;
+  border-bottom: 1px solid var(--line-1);
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 96px; align-items: end; position: relative;
+}
+.cover-mark {
+  position: absolute; top: 64px; left: 96px;
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--font-display); font-size: 18px; font-weight: 500; letter-spacing: -0.01em;
+}
+.cover-mark svg.brand { height: 22px; width: 22px; display: block; }
+.cover-mark .sub {
+  font-family: var(--font-sans); font-size: 11px; color: var(--ink-2);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-left: 6px; padding-left: 12px; border-left: 1px solid var(--line-1);
+}
+.cover-meta {
+  position: absolute; top: 64px; right: 96px;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2);
+  display: flex; gap: 24px;
+}
+.cover h1 {
+  font-family: var(--font-display); font-size: 92px; font-weight: 500;
+  line-height: 0.96; letter-spacing: -0.035em;
+  margin: 0 0 32px; color: var(--ink-1); text-wrap: balance;
+}
+.cover h1 em {
+  font-family: var(--font-display-editorial); font-style: italic; font-weight: 400;
+  color: var(--accent-soil);
+}
+.cover .deck {
+  font-size: 21px; line-height: 1.45; color: var(--ink-2);
+  max-width: 460px; margin: 0; text-wrap: pretty;
+}
+.cover-side { border-left: 1px solid var(--line-1); padding-left: 48px; padding-bottom: 8px; }
+.cover-side dl { display: grid; grid-template-columns: max-content 1fr; gap: 14px 32px; margin: 0 0 40px; }
+.cover-side dt {
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-2); font-weight: 500; align-self: baseline; padding-top: 3px;
+}
+.cover-side dd { margin: 0; font-size: 15px; color: var(--ink-1); line-height: 1.45; }
+.cover-tldr { border-top: 1px solid var(--line-1); padding-top: 32px; }
+.cover-tldr-label {
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--accent-soil);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px;
+}
+.cover-tldr p {
+  font-family: var(--font-display-editorial); font-style: italic;
+  font-size: 24px; line-height: 1.35; color: var(--ink-1); margin: 0; text-wrap: pretty;
+}
+
+.section {
+  padding: 96px 96px 64px; border-bottom: 1px solid var(--line-1);
+  max-width: 1400px; margin: 0 auto; position: relative;
+}
+.section-num {
+  font-family: var(--font-mono); font-size: 12px; color: var(--ink-2);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex; align-items: center; gap: 16px;
+}
+.section-num::before { content: ""; width: 32px; height: 1px; background: var(--accent-soil); }
+.section h2 {
+  font-family: var(--font-display); font-size: 48px; font-weight: 500;
+  line-height: 1.05; letter-spacing: -0.025em;
+  margin: 0 0 16px; color: var(--ink-1);
+  text-wrap: balance; max-width: 22ch;
+}
+.section .deck {
+  font-size: 19px; line-height: 1.5; color: var(--ink-2);
+  max-width: 64ch; margin: 0 0 56px; text-wrap: pretty;
+}
+h3.heading {
+  font-family: var(--font-display); font-size: 28px; font-weight: 500;
+  letter-spacing: -0.015em; line-height: 1.15;
+  margin: 56px 0 12px; color: var(--ink-1);
+}
+h4.heading {
+  font-family: var(--font-sans); font-size: 17px; font-weight: 600;
+  margin: 40px 0 10px; color: var(--ink-1);
+}
+.prose p { font-size: 16.5px; line-height: 1.6; color: var(--ink-1); margin: 0 0 16px; max-width: 66ch; text-wrap: pretty; }
+.prose ul, .prose ol { font-size: 16.5px; line-height: 1.6; color: var(--ink-1); margin: 0 0 16px; padding-left: 22px; max-width: 64ch; }
+.prose li { margin-bottom: 6px; }
+.prose li::marker { color: var(--ink-2); }
+.prose strong { font-weight: 600; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.frame { margin: 32px 0 24px; position: relative; }
+.frame-stage {
+  position: relative; background: var(--bg-canvas);
+  border: 1px solid var(--line-1); border-radius: var(--radius-3);
+  overflow: hidden; isolation: isolate;
+}
+.frame-caption {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 24px; margin-top: 14px;
+  font-size: 13px; color: var(--ink-2);
+  font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em;
+}
+.frame-caption .tag {
+  font-family: var(--font-sans); text-transform: none; letter-spacing: 0;
+  padding: 3px 10px; border-radius: var(--radius-pill);
+  font-size: 11.5px; font-weight: 500;
+}
+.frame-caption .tag.now { background: color-mix(in oklab, var(--accent-soil) 14%, transparent); color: var(--soil-700); }
+.frame-caption .tag.next { background: color-mix(in oklab, var(--accent-bed) 18%, transparent); color: var(--bed-700); }
+
+.pin {
+  position: absolute; width: 22px; height: 22px;
+  border-radius: 999px;
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+  color: white; display: grid; place-items: center; z-index: 10;
+  box-shadow: 0 0 0 3px var(--bg-canvas), 0 2px 6px rgba(0,0,0,0.18);
+}
+.pin.bad { background: var(--accent-soil); }
+.pin.good { background: var(--bed-700); }
+.pin.note { background: var(--accent-sky); }
+
+.callouts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 40px; margin-top: 24px; }
+.callout { display: grid; grid-template-columns: 28px 1fr; gap: 14px; align-items: start; }
+.callout-num {
+  width: 22px; height: 22px; border-radius: 999px;
+  font-family: var(--font-mono); font-size: 11.5px; font-weight: 600;
+  color: white; display: grid; place-items: center; margin-top: 2px;
+}
+.callout-num.bad { background: var(--accent-soil); }
+.callout-num.good { background: var(--bed-700); }
+.callout p { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--ink-1); }
+.callout p em { color: var(--ink-2); font-style: normal; }
+
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin: 24px 0; }
+.compare .col h5 {
+  font-family: var(--font-mono); font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-2); margin: 0 0 12px; font-weight: 500;
+}
+.compare .col h5 .dot {
+  display: inline-block; width: 7px; height: 7px;
+  border-radius: 999px; margin-right: 8px;
+  vertical-align: middle; transform: translateY(-1px);
+}
+.compare .col.now .dot { background: var(--accent-soil); }
+.compare .col.next .dot { background: var(--bed-700); }
+
+/* Current dark toolbar recreation */
+.now-app { background: #1a1a1a; color: #ddd; }
+.now-toolbar {
+  display: flex; align-items: center;
+  background: #1e1e1e; border-bottom: 1px solid #333;
+  height: 44px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+.now-section {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 12px; height: 100%;
+  border-right: 1px solid #333; flex-shrink: 0;
+}
+.now-section.first { padding-left: 16px; }
+.now-section.last { border-right: 0; }
+.now-btn {
+  background: #2a2a2a; color: #eee; border: 1px solid #444;
+  padding: 6px 10px; border-radius: 4px;
+  font-size: 13px; line-height: 1;
+  font-family: inherit; white-space: nowrap;
+}
+.now-btn.dim { opacity: 0.4; }
+.now-input {
+  width: 70px; background: #111; color: #eee;
+  border: 1px solid #444; padding: 3px 5px;
+  font-size: 12.5px; font-family: inherit;
+}
+.now-input.w55 { width: 55px; }
+.now-input.w130 { width: 130px; }
+.now-label { color: #aaa; font-size: 12px; white-space: nowrap; }
+.now-soft { color: #888; font-size: 11px; white-space: nowrap; }
+.now-strong { color: #eee; font-size: 13px; font-weight: 600; }
+.now-title-sub { color: #666; font-size: 11px; }
+.now-success { color: #80cc80; font-size: 12px; white-space: nowrap; }
+.now-bright { color: #ddd; font-size: 12px; white-space: nowrap; }
+.now-range { width: 140px; accent-color: #d4a24c; }
+.now-check { width: 13px; height: 13px; accent-color: #888; }
+
+.now-sidepanel {
+  width: 240px; background: #1e1e1e; border-left: 1px solid #333;
+  color: #ddd; padding: 12px; font-size: 12px;
+  font-family: -apple-system, system-ui, sans-serif;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.now-sidepanel .title { color: #eee; font-size: 13px; font-weight: 600; }
+.now-sidepanel .row .label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+.now-sidepanel .row .value { color: #eee; font-size: 13px; }
+.now-sidepanel .divider { border-top: 1px solid #333; margin-top: 8px; padding-top: 8px; }
+.now-sidepanel .footnote { color: #666; font-size: 10px; margin-top: 4px; line-height: 1.45; }
+
+/* Proposed (paper) */
+.next-app { background: var(--bg-paper); font-family: var(--font-sans); color: var(--ink-1); }
+.next-topbar {
+  display: flex; align-items: center;
+  height: 56px; background: var(--bg-surface);
+  border-bottom: 1px solid var(--line-1);
+  padding: 0 20px; gap: 16px;
+}
+.next-brand { display: flex; align-items: center; gap: 10px; }
+.next-brand svg.brand { height: 22px; width: 22px; display: block; }
+.next-brand .wordmark {
+  font-family: var(--font-display); font-size: 17px; font-weight: 500;
+  letter-spacing: -0.01em; color: var(--ink-1);
+}
+.next-brand-divider { width: 1px; height: 22px; background: var(--line-1); }
+.next-scene {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 14px; color: var(--ink-1);
+  padding: 6px 10px; border-radius: var(--radius-2);
+}
+.next-scene .name { font-weight: 500; }
+.next-scene .saved {
+  font-size: 11px; color: var(--ink-3);
+  font-family: var(--font-mono);
+  margin-left: 8px; padding-left: 10px; border-left: 1px solid var(--line-1);
+}
+.next-spacer { flex: 1; }
+.next-iconbtn {
+  width: 32px; height: 32px; display: grid; place-items: center;
+  color: var(--ink-1); border-radius: var(--radius-2);
+}
+.next-pillbtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--line-1);
+  background: var(--bg-surface);
+  color: var(--ink-1);
+  font-size: 13px; font-weight: 500;
+}
+.next-pillbtn.primary {
+  background: var(--ink-1); color: var(--bg-surface);
+  border-color: transparent;
+}
+
+.next-rail {
+  width: 56px; background: var(--bg-surface);
+  border-right: 1px solid var(--line-1);
+  flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 12px 0; gap: 4px;
+}
+.tool {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-2);
+  color: var(--ink-1); position: relative;
+}
+.tool .kbd {
+  position: absolute; bottom: 3px; right: 4px;
+  font-family: var(--font-mono); font-size: 9px;
+  color: var(--ink-3);
+}
+.tool.active { background: var(--ink-1); color: var(--bg-surface); }
+.tool.active .kbd { color: rgba(255,255,255,0.5); }
+.tool.div { width: 24px; height: 1px; background: var(--line-1); margin: 6px 0; }
+
+.next-canvas-wrap {
+  flex: 1; min-width: 0;
+  background: var(--bg-canvas);
+  position: relative; overflow: hidden;
+}
+.next-canvas-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(31,36,25,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31,36,25,0.05) 1px, transparent 1px),
+    linear-gradient(rgba(31,36,25,0.10) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31,36,25,0.10) 1px, transparent 1px);
+  background-size: 16px 16px, 16px 16px, 80px 80px, 80px 80px;
+}
+
+.next-inspector {
+  width: 320px; flex-shrink: 0;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--line-1);
+  padding: 22px;
+  display: flex; flex-direction: column;
+  gap: 24px; overflow: hidden;
+}
+.next-inspector .hed {
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 500;
+  letter-spacing: -0.01em; line-height: 1.15; margin: 0;
+}
+.next-inspector .sub {
+  font-size: 12.5px; color: var(--ink-2);
+  margin-top: 4px; line-height: 1.5;
+}
+.next-inspector .sectitle {
+  font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-2); font-weight: 500;
+  margin: 0 0 8px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.next-inspector .row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  padding: 5px 0; font-size: 13.5px; gap: 12px;
+}
+.next-inspector .row .l {
+  font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--ink-2); font-weight: 500;
+}
+.next-inspector .row .v {
+  font-family: var(--font-mono); color: var(--ink-1);
+  font-variant-numeric: tabular-nums; text-align: right;
+}
+.next-inspector .row .v .u { color: var(--ink-2); margin-left: 3px; }
+.next-inspector .hero {
+  font-family: var(--font-mono);
+  font-size: 48px; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums; line-height: 1;
+  color: var(--ink-1);
+}
+.next-inspector .hero .u { font-size: 18px; color: var(--ink-2); margin-left: 4px; }
+.next-inspector hr { border: 0; border-top: 1px solid var(--line-1); margin: 0; }
+
+.next-timebar {
+  height: 64px; background: var(--bg-surface);
+  border-top: 1px solid var(--line-1);
+  display: flex; align-items: center;
+  padding: 0 20px; gap: 20px;
+  flex-shrink: 0;
+}
+.next-timebar .datepill {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 32px; padding: 0 14px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  font-size: 13px; color: var(--ink-1);
+}
+.next-timebar .datepill .month {
+  font-family: var(--font-mono); font-size: 11.5px;
+  color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.06em;
+}
+.next-timebar .scrub {
+  flex: 1; position: relative; height: 32px;
+  display: flex; align-items: center;
+}
+.next-timebar .track {
+  position: absolute; left: 0; right: 0; height: 4px;
+  background: var(--line-1); border-radius: 999px; top: 50%; transform: translateY(-50%);
+}
+.next-timebar .now-arc {
+  position: absolute; top: 50%; left: 0; height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--sun-300), var(--accent-sun));
+  transform: translateY(-50%);
+}
+.next-timebar .tick {
+  position: absolute; width: 1px; height: 8px;
+  background: var(--line-2); top: 50%; transform: translateY(-50%);
+}
+.next-timebar .tick .lab {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3);
+  white-space: nowrap;
+}
+.next-timebar .marker {
+  position: absolute; top: 50%; transform: translate(-50%, -50%);
+  width: 14px; height: 14px; border-radius: 999px;
+  background: var(--accent-sun); border: 2px solid var(--bg-surface);
+  box-shadow: var(--shadow-1);
+}
+.next-timebar .readout {
+  font-family: var(--font-mono); font-size: 12.5px;
+  color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.next-timebar .readout .b { color: var(--ink-1); }
+
+.bed {
+  position: absolute;
+  background: color-mix(in oklab, var(--accent-bed) 22%, var(--bg-surface));
+  border: 1px solid var(--bed-500);
+  border-radius: 2px;
+}
+.bed.selected { outline: 2px solid var(--accent-sun); outline-offset: 2px; }
+.bed.wall {
+  background: color-mix(in oklab, var(--accent-wall) 30%, var(--bg-surface));
+  border-color: var(--wall-700);
+}
+.bed.shadow {
+  background: rgba(31,36,25,0.16);
+  border-color: transparent; border-radius: 0;
+}
+.plot-boundary {
+  position: absolute;
+  border: 2px dashed var(--accent-sun);
+  border-radius: 2px; pointer-events: none;
+}
+
+.float-toolbar {
+  position: absolute;
+  display: inline-flex; align-items: center;
+  height: 36px; background: var(--bg-surface);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-2);
+  box-shadow: var(--shadow-2);
+  padding: 0 4px; gap: 2px;
+  font-family: var(--font-sans);
+}
+.float-toolbar .fbtn {
+  width: 30px; height: 28px;
+  display: grid; place-items: center;
+  color: var(--ink-1);
+  border-radius: var(--radius-1);
+}
+.float-toolbar .fsep { width: 1px; height: 16px; background: var(--line-1); margin: 0 2px; }
+.float-toolbar .label {
+  font-family: var(--font-mono); font-size: 11.5px;
+  color: var(--ink-2);
+  padding: 0 8px 0 6px;
+}
+
+.cardgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 24px 0; }
+.card {
+  background: var(--bg-surface); border: 1px solid var(--line-1);
+  border-radius: var(--radius-3); padding: 22px;
+}
+.card .num {
+  font-family: var(--font-mono); font-size: 12px; color: var(--accent-soil);
+  letter-spacing: 0.08em; margin-bottom: 8px; text-transform: uppercase;
+}
+.card h4 {
+  font-family: var(--font-display); font-size: 19px; font-weight: 500;
+  letter-spacing: -0.01em; margin: 0 0 8px;
+}
+.card p { font-size: 14px; color: var(--ink-2); line-height: 1.55; margin: 0; }
+
+table.move { width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 14.5px; }
+table.move th, table.move td {
+  text-align: left; padding: 14px 16px;
+  border-bottom: 1px solid var(--line-1); vertical-align: top;
+}
+table.move th {
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink-2); font-weight: 500;
+}
+table.move td.was { font-family: var(--font-mono); font-size: 13px; color: var(--ink-2); width: 26%; }
+table.move td.now { font-family: var(--font-mono); font-size: 13px; color: var(--ink-1); width: 30%; }
+table.move td.why { color: var(--ink-1); }
+
+.kbd-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 36px; margin: 24px 0; }
+.kbd-row { display: grid; grid-template-columns: 64px 1fr; gap: 14px; align-items: baseline; }
+.kbd-key {
+  font-family: var(--font-mono); font-size: 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--line-1); border-bottom-width: 2px;
+  border-radius: 4px; padding: 3px 7px;
+  color: var(--ink-1); display: inline-block;
+  text-align: center; min-width: 36px;
+}
+.kbd-row .desc { font-size: 14px; color: var(--ink-1); }
+.kbd-row .desc em { color: var(--ink-2); font-style: normal; font-size: 13px; }
+
+.pull { margin: 56px 0; padding: 0 0 0 32px; border-left: 2px solid var(--accent-soil); max-width: 60ch; }
+.pull p {
+  font-family: var(--font-display-editorial); font-style: italic;
+  font-size: 28px; line-height: 1.3; color: var(--ink-1); margin: 0; text-wrap: pretty;
+}
+.pull .att {
+  margin-top: 14px; font-size: 12px; color: var(--ink-2);
+  text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono);
+}
+
+.foot {
+  padding: 64px 96px 80px; max-width: 1400px; margin: 0 auto;
+  display: flex; justify-content: space-between; align-items: end; gap: 64px;
+}
+.foot p { font-size: 13.5px; color: var(--ink-2); max-width: 50ch; margin: 0; line-height: 1.6; }
+.foot .sig {
+  font-family: var(--font-display-editorial); font-style: italic;
+  font-size: 18px; color: var(--ink-1);
+}
+
+.minitoc {
+  position: sticky; top: 0; z-index: 100;
+  background: color-mix(in oklab, var(--bg-paper) 90%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line-1);
+  display: flex; align-items: center; gap: 4px;
+  padding: 10px 24px;
+  font-family: var(--font-mono); font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  overflow-x: auto;
+}
+.minitoc .item { padding: 4px 10px; border-radius: 999px; color: var(--ink-2); text-decoration: none; white-space: nowrap; }
+.minitoc .item .n { color: var(--ink-3); margin-right: 6px; }
+
+.svg-i { display: inline-block; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<!-- ============ Reusable icon set ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-logo" viewBox="0 0 48 48"><rect x="4" y="4" width="40" height="40" rx="3" stroke="#1F2419" stroke-width="2" stroke-dasharray="5 4" fill="none"/><rect x="9" y="9" width="17" height="11" rx="1.5" fill="#6E8C5A"/><rect x="9" y="23" width="11" height="16" rx="1.5" fill="#6E8C5A" opacity="0.65"/><rect x="23" y="23" width="16" height="16" rx="1.5" fill="#B5562E" opacity="0.9"/></symbol>
+    <symbol id="i-cursor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3l6 18 2.5-7.5L20 11z"/></symbol>
+    <symbol id="i-bed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="1"/><path d="M3 12h18"/></symbol>
+    <symbol id="i-wall" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18"/><path d="M3 9h18M3 15h18M9 3v6M15 9v6M9 15v6"/></symbol>
+    <symbol id="i-plot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1" stroke-dasharray="2 3"/></symbol>
+    <symbol id="i-ruler" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0z"/><path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 4.5 2 2"/><path d="m4.5 13.5 2 2"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></symbol>
+    <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88"/></symbol>
+    <symbol id="i-rotate" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></symbol>
+    <symbol id="i-question" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============ Sticky mini TOC ============ -->
+<nav class="minitoc" aria-label="Table of contents">
+  <a class="item" href="#cover"><span class="n">00</span>Cover</a><span class="sep">·</span>
+  <a class="item" href="#diagnosis"><span class="n">01</span>Diagnosis</a><span class="sep">·</span>
+  <a class="item" href="#principles"><span class="n">02</span>Principles</a><span class="sep">·</span>
+  <a class="item" href="#ia"><span class="n">03</span>New IA</a><span class="sep">·</span>
+  <a class="item" href="#topbar"><span class="n">04</span>Top bar</a><span class="sep">·</span>
+  <a class="item" href="#rail"><span class="n">05</span>Tool rail</a><span class="sep">·</span>
+  <a class="item" href="#canvas"><span class="n">06</span>Canvas</a><span class="sep">·</span>
+  <a class="item" href="#inspector"><span class="n">07</span>Inspector</a><span class="sep">·</span>
+  <a class="item" href="#timebar"><span class="n">08</span>Sun & time</a><span class="sep">·</span>
+  <a class="item" href="#empty"><span class="n">09</span>Empty / onboarding</a><span class="sep">·</span>
+  <a class="item" href="#scenes"><span class="n">10</span>Scenes</a><span class="sep">·</span>
+  <a class="item" href="#movetable"><span class="n">11</span>Move table</a><span class="sep">·</span>
+  <a class="item" href="#keys"><span class="n">12</span>Keys</a><span class="sep">·</span>
+  <a class="item" href="#open"><span class="n">13</span>Open Qs</a>
+</nav>
+
+<!-- ============ Cover ============ -->
+<header class="cover" id="cover">
+  <div class="cover-mark">
+    <svg class="brand" viewBox="0 0 48 48"><use href="#i-logo"/></svg>
+    <span>PlotPlaner</span>
+    <span class="sub">UI streamlining audit · v1</span>
+  </div>
+  <div class="cover-meta">
+    <span>20 maj 2026</span>
+    <span>For Saibot57 / geometry-sandbox</span>
+  </div>
+
+  <div>
+    <h1>Less&nbsp;chrome,<br/>more&nbsp;<em>garden</em>.</h1>
+    <p class="deck">A plan to declutter the planner — by moving most of today's top bar off the top bar, promoting the canvas to protagonist, and giving the gardener one obvious next move at every step.</p>
+  </div>
+
+  <aside class="cover-side">
+    <dl>
+      <dt>Scope</dt><dd>Web app — toolbar, inspector, canvas interactions, time slider, empty state, scene management.</dd>
+      <dt>Philosophy</dt><dd>Bold IA rethink. Hide secondary tools. Use contextual UI. Keep nothing on screen that doesn't earn its place.</dd>
+      <dt>Audience</dt><dd>Returning hobbyists iterating on a known plot.</dd>
+      <dt>Constraint</dt><dd>In-product copy stays Swedish ("du"-form, sentence case, drafting-book voice).</dd>
+      <dt>Anchor</dt><dd>PlotPlaner design system — paper + ink, sage / soil / sun / sky accents, Montserrat + Cabin + JetBrains Mono.</dd>
+    </dl>
+    <div class="cover-tldr">
+      <div class="cover-tldr-label">TL;DR</div>
+      <p>One toolbar becomes four surfaces that each do one thing. The 14-control top bar becomes a 5-control top bar. Tools move to a left rail. Sun &amp; time get their own bottom strip. Everything else becomes contextual — and stays out of the way until needed.</p>
+    </div>
+  </aside>
+</header>
+
+<!-- ============ 01 Diagnosis ============ -->
+<section class="section" id="diagnosis">
+  <div class="section-num">01 / Diagnosis</div>
+  <h2>The top bar is doing nine jobs at once.</h2>
+  <p class="deck">Every action in the planner today lives on a single 44 px horizontal strip — add &amp; remove, undo, file I/O, selected-rect controls, the time slider, sun readout, plot boundary, grid snap, north rotation, bed depth, area totals, collision status. It's a deep-tool toolbar pretending to be a header.</p>
+
+  <div class="frame">
+    <div class="frame-stage now-app" style="aspect-ratio: 1400 / 220;">
+      <!-- Current toolbar recreation (high-fidelity) -->
+      <div class="now-toolbar">
+        <div class="now-section first">
+          <span class="now-strong">Koloniträdgårdsplaneraren</span>
+          <span class="now-title-sub">geometry sandbox</span>
+        </div>
+        <div class="now-section">
+          <button class="now-btn">+ Rektangel</button>
+          <button class="now-btn">– Ta bort</button>
+        </div>
+        <div class="now-section">
+          <button class="now-btn">↶ Ångra</button>
+          <button class="now-btn dim">↷ Gör om</button>
+        </div>
+        <div class="now-section">
+          <button class="now-btn">Spara JSON</button>
+          <button class="now-btn">Ladda JSON</button>
+        </div>
+        <div class="now-section">
+          <span class="now-label">Vald: rect-2</span>
+          <button class="now-btn">↺ -15°</button>
+          <button class="now-btn">↻ +15°</button>
+          <span class="now-label">wallHeight (mm)</span>
+          <input class="now-input" value="0" readonly />
+        </div>
+        <div class="now-section">
+          <span class="now-label">Datum</span>
+          <input class="now-input w130" value="2025-06-21" readonly />
+          <span class="now-label">Soltid</span>
+          <input class="now-range" type="range" min="6" max="20" step="0.25" value="13.5" readonly />
+          <input type="checkbox" class="now-check" checked />
+          <span class="now-label">Skuggor</span>
+          <span class="now-soft">Sol: alt 41.2°, az 187.5°</span>
+        </div>
+        <div class="now-section">
+          <button class="now-btn">Skapa tomt</button>
+          <input type="checkbox" class="now-check" />
+          <span class="now-label">Snap</span>
+          <input class="now-input w55" value="100" readonly />
+          <span class="now-label">N-rotation°</span>
+          <input class="now-input w55" value="0" readonly />
+        </div>
+        <div class="now-section">
+          <span class="now-label">Bäddhöjd (mm)</span>
+          <input class="now-input" value="300" readonly />
+          <span class="now-bright">Σ 12.30 m² · 410 L jord</span>
+        </div>
+        <div class="now-section last">
+          <span class="now-success">✓ inga kollisioner</span>
+        </div>
+      </div>
+
+      <!-- Annotation pins -->
+      <div class="pin bad" style="top: 24px; left: 248px;">1</div>
+      <div class="pin bad" style="top: 24px; left: 477px;">2</div>
+      <div class="pin bad" style="top: 24px; left: 758px;">3</div>
+      <div class="pin bad" style="top: 24px; left: 1090px;">4</div>
+      <div class="pin bad" style="top: 24px; left: 1500px;">5</div>
+      <div class="pin bad" style="top: 24px; left: 1810px;">6</div>
+      <div class="pin bad" style="top: 24px; left: 2050px;">7</div>
+      <div class="pin bad" style="top: 24px; left: 2300px;">8</div>
+    </div>
+    <div class="frame-caption">
+      <span>Fig. 01 — Toolbar.tsx, recreated to scale</span>
+      <span class="tag now">Today</span>
+    </div>
+  </div>
+
+  <p class="prose" style="margin-top: 32px; font-size: 16.5px; color: var(--ink-1); max-width: 66ch;">The bar overflows horizontally on anything narrower than ~2400&nbsp;px. The codebase already acknowledges this with <span class="mono">overflow-x: auto</span> — the toolbar is hiding from itself. Eight separate concerns sit side by side as if they were equal, separated only by hairline dividers. There is no hierarchy: <em>"Spara JSON"</em> and the sun-altitude readout get the same visual weight as <em>"Lägg till bädd"</em>, which is the only action a first-time visitor needs to find.</p>
+
+  <div class="callouts">
+    <div class="callout"><div class="callout-num bad">1</div><p><strong>Title squeezed into a toolbar.</strong> <em>The wordmark and "geometry sandbox" label live where Add Bed should be the loudest thing on screen.</em></p></div>
+    <div class="callout"><div class="callout-num bad">2</div><p><strong>"+ Rektangel" isn't a primary action.</strong> <em>It looks like every other secondary button. The single most-used verb of the app has no visual claim.</em></p></div>
+    <div class="callout"><div class="callout-num bad">3</div><p><strong>File I/O sits in the top bar always.</strong> <em>"Spara JSON" / "Ladda JSON" are once-a-session actions, not at-hand actions. They take the same space as undo.</em></p></div>
+    <div class="callout"><div class="callout-num bad">4</div><p><strong>Per-selection controls leak into the bar.</strong> <em>Rotate and wall-height appear and disappear in the top bar depending on selection — they belong to the bed, not to the chrome.</em></p></div>
+    <div class="callout"><div class="callout-num bad">5</div><p><strong>The sun readout is dev output.</strong> <em>"Sol: alt 41.2°, az 187.5°" reads like a console log. Useful for debugging the math; opaque to a gardener.</em></p></div>
+    <div class="callout"><div class="callout-num bad">6</div><p><strong>Three unrelated settings in one section.</strong> <em>"Skapa tomt", grid snap, and north rotation share a group with no visible reason. North rotation is set once per plot, ever.</em></p></div>
+    <div class="callout"><div class="callout-num bad">7</div><p><strong>Bed depth is a global slider hidden in plain sight.</strong> <em>It changes the soil-volume of every bed at once, but lives between a measurement label and a Greek sigma.</em></p></div>
+    <div class="callout"><div class="callout-num bad">8</div><p><strong>Status messages don't earn the toolbar.</strong> <em>Σ totals and the collision count are read-only — they belong in a quieter status row, not crammed into the action surface.</em></p></div>
+  </div>
+
+  <div class="pull">
+    <p>"A toolbar should answer the question 'what can I do?'. PlotPlaner's toolbar answers 'what does this app contain?'. Those are very different questions."</p>
+    <div class="att">— observation, this audit</div>
+  </div>
+</section>
+
+<!-- ============ 02 Principles ============ -->
+<section class="section" id="principles">
+  <div class="section-num">02 / Principles</div>
+  <h2>Five rules for the rebuild.</h2>
+  <p class="deck">Before redrawing anything, here's what every decision in the rest of this document is measured against. Each is in service of the design system's stated stance: <em>a drafting table for the garden — paper, ink, pencil, honest measurement</em>.</p>
+
+  <div class="cardgrid">
+    <div class="card"><div class="num">P1</div><h4>One surface, one job.</h4><p>The top bar is for app-level chrome. The rail is for tools. The bottom strip is for time. The inspector is for the selected object. No surface does more than one thing.</p></div>
+    <div class="card"><div class="num">P2</div><h4>Contextual over persistent.</h4><p>Per-object controls (rotate, wall, delete) live on the object — as a floating toolbar over the selection — not on the chrome. The chrome doesn't change when you click a bed.</p></div>
+    <div class="card"><div class="num">P3</div><h4>Verbs first, settings second.</h4><p>Primary verbs (add bed, draw wall, define plot) are visually loud and shortcut-accessible. Settings (grid step, north rotation, bed depth) hide behind a quiet menu.</p></div>
+    <div class="card"><div class="num">P4</div><h4>The canvas is the protagonist.</h4><p>Every chrome decision asks: does this make the canvas easier to look at? If a control can be smaller, hidden behind a hover, or moved off-canvas, it should be.</p></div>
+    <div class="card"><div class="num">P5</div><h4>Numbers should be readable, not raw.</h4><p>"Sol: alt 41.2°, az 187.5°" becomes "Sol 41° över horisonten · sydsydväst". Raw degrees stay available — in tooltips and a dev mode — but never lead.</p></div>
+    <div class="card"><div class="num">P6</div><h4>Keyboard is first-class.</h4><p>This is a desktop tool used by returning hobbyists. Every primary verb gets a one-letter shortcut. The shortcut is shown on the icon, not hidden in a tooltip.</p></div>
+  </div>
+</section>
+
+<!-- ============ 03 New IA ============ -->
+<section class="section" id="ia">
+  <div class="section-num">03 / New IA</div>
+  <h2>Four surfaces, each with one job.</h2>
+  <p class="deck">Today the app is one zone: a toolbar above a canvas with a small inspector. The new layout splits that one mixed-purpose toolbar into four single-purpose surfaces, each touching the canvas on a different edge. The canvas grows.</p>
+
+  <div class="frame">
+    <div class="frame-stage" style="aspect-ratio: 1400 / 780; background: var(--bg-paper);">
+      <!-- Diagrammatic frame showing the new IA -->
+      <div style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+        <!-- Top bar -->
+        <div style="height: 64px; background: var(--bg-surface); border-bottom: 1px solid var(--line-1); display: flex; align-items: center; padding: 0 24px; gap: 16px;">
+          <div style="font-family: var(--font-display); font-size: 18px; font-weight: 500; letter-spacing: -0.01em;">PlotPlaner</div>
+          <div style="width: 1px; height: 22px; background: var(--line-1);"></div>
+          <div style="font-size: 14px; color: var(--ink-1);">Norra tomten · 12 × 8 m</div>
+          <div style="flex: 1;"></div>
+          <div style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.08em;">scene · share · settings</div>
+        </div>
+        <div style="flex: 1; display: flex; min-height: 0;">
+          <!-- Left rail -->
+          <div style="width: 64px; background: var(--bg-surface); border-right: 1px solid var(--line-1); display: flex; flex-direction: column; align-items: center; padding-top: 16px; gap: 8px;">
+            <div style="width: 36px; height: 36px; background: var(--ink-1); border-radius: 6px;"></div>
+            <div style="width: 36px; height: 36px; border: 1px solid var(--line-1); border-radius: 6px;"></div>
+            <div style="width: 36px; height: 36px; border: 1px solid var(--line-1); border-radius: 6px;"></div>
+            <div style="width: 36px; height: 36px; border: 1px solid var(--line-1); border-radius: 6px;"></div>
+            <div style="width: 24px; height: 1px; background: var(--line-1); margin: 6px 0;"></div>
+            <div style="width: 36px; height: 36px; border: 1px solid var(--line-1); border-radius: 6px;"></div>
+          </div>
+          <!-- Canvas -->
+          <div style="flex: 1; background: var(--bg-canvas); position: relative;">
+            <div style="position: absolute; inset: 0;
+              background-image:
+                linear-gradient(rgba(31,36,25,0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(31,36,25,0.06) 1px, transparent 1px);
+              background-size: 80px 80px;"></div>
+            <div style="position: absolute; left: 80px; top: 60px; right: 80px; bottom: 60px; border: 2px dashed var(--accent-sun); border-radius: 2px;"></div>
+            <div style="position: absolute; left: 160px; top: 120px; width: 240px; height: 88px; background: color-mix(in oklab, var(--accent-bed) 22%, var(--bg-surface)); border: 1px solid var(--bed-500);"></div>
+            <div style="position: absolute; left: 160px; top: 232px; width: 360px; height: 88px; background: color-mix(in oklab, var(--accent-bed) 22%, var(--bg-surface)); border: 1px solid var(--bed-500); outline: 2px solid var(--accent-sun); outline-offset: 2px;"></div>
+            <div style="position: absolute; left: 560px; top: 120px; width: 88px; height: 280px; background: color-mix(in oklab, var(--accent-wall) 30%, var(--bg-surface)); border: 1px solid var(--wall-700);"></div>
+          </div>
+          <!-- Inspector -->
+          <div style="width: 280px; background: var(--bg-surface); border-left: 1px solid var(--line-1); padding: 22px; display: flex; flex-direction: column; gap: 18px;">
+            <div style="font-family: var(--font-display); font-size: 18px; font-weight: 500; letter-spacing: -0.01em;">Bädd</div>
+            <div style="height: 1px; background: var(--line-1);"></div>
+            <div style="height: 12px; width: 50%; background: var(--paper-300); border-radius: 2px;"></div>
+            <div style="height: 12px; width: 70%; background: var(--paper-300); border-radius: 2px;"></div>
+            <div style="height: 12px; width: 40%; background: var(--paper-300); border-radius: 2px;"></div>
+            <div style="height: 12px; width: 60%; background: var(--paper-300); border-radius: 2px;"></div>
+            <div style="font-family: var(--font-mono); font-size: 36px; color: var(--ink-1); letter-spacing: -0.02em;">7,2<span style="font-size: 14px; color: var(--ink-2);"> h</span></div>
+            <div style="height: 1px; background: var(--line-1);"></div>
+            <div style="height: 12px; width: 80%; background: var(--paper-300); border-radius: 2px;"></div>
+          </div>
+        </div>
+        <!-- Time bar -->
+        <div style="height: 72px; background: var(--bg-surface); border-top: 1px solid var(--line-1); display: flex; align-items: center; padding: 0 24px; gap: 20px;">
+          <div style="display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border: 1px solid var(--line-1); border-radius: 999px; font-size: 13px;">21 juni · midsommar</div>
+          <div style="flex: 1; position: relative; height: 4px; background: var(--line-1); border-radius: 999px;">
+            <div style="position: absolute; left: 0; width: 55%; height: 4px; border-radius: 999px; background: linear-gradient(90deg, var(--sun-300), var(--accent-sun));"></div>
+            <div style="position: absolute; left: 55%; top: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; border-radius: 999px; background: var(--accent-sun); border: 2px solid var(--bg-surface); box-shadow: var(--shadow-1);"></div>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2);"><span style="color: var(--ink-1);">13:30</span> · sol 41° över horisonten · söder</div>
+        </div>
+        <!-- Status bar -->
+        <div style="height: 28px; background: var(--bg-surface); border-top: 1px solid var(--line-1); display: flex; align-items: center; padding: 0 24px; gap: 16px; font-size: 11px; color: var(--ink-2); font-family: var(--font-mono);">
+          <span style="color: var(--state-success);">✓ inga kollisioner</span>
+          <span style="width: 1px; height: 14px; background: var(--line-1);"></span>
+          <span>4 bäddar · 12,3 m² · 410 L</span>
+          <span style="flex: 1;"></span>
+          <span>Sparat 14:32 · Lat 55,87° N</span>
+        </div>
+      </div>
+
+      <!-- Annotations -->
+      <div class="pin good" style="top: 22px; left: 24px;">A</div>
+      <div class="pin good" style="top: 82px; left: 24px;">B</div>
+      <div class="pin good" style="top: 360px; right: 24px;">C</div>
+      <div class="pin good" style="bottom: 76px; left: 24px;">D</div>
+      <div class="pin good" style="bottom: 8px; left: 24px;">E</div>
+    </div>
+    <div class="frame-caption">
+      <span>Fig. 02 — Proposed IA, four surfaces + status</span>
+      <span class="tag next">Proposed</span>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div class="callout"><div class="callout-num good">A</div><p><strong>Top bar — identity &amp; scene.</strong> <em>The wordmark, the scene title (the gardener's plot file), share/export. No tools live here. Five elements max.</em></p></div>
+    <div class="callout"><div class="callout-num good">B</div><p><strong>Left rail — the tools.</strong> <em>Select, Bed, Wall, Plot boundary, Measure. Vertical column of 40 px squares with one-letter shortcuts. The protagonist's hand.</em></p></div>
+    <div class="callout"><div class="callout-num good">C</div><p><strong>Right inspector — the selection.</strong> <em>What's selected, in plain language, with the sun-hours number as a hero. Empty becomes a Scene overview, not just "select something".</em></p></div>
+    <div class="callout"><div class="callout-num good">D</div><p><strong>Bottom strip — sun &amp; time.</strong> <em>Promoted from a 140 px slider hidden in the toolbar to a full-width timeline. It's a scrubber, like a video timeline.</em></p></div>
+    <div class="callout"><div class="callout-num good">E</div><p><strong>Status row — quiet truths.</strong> <em>Collisions, totals, save state, lat/lon. Things the gardener consults; never things they click.</em></p></div>
+  </div>
+</section>
+
+<!-- ============ 04 Top bar ============ -->
+<section class="section" id="topbar">
+  <div class="section-num">04 / The top bar</div>
+  <h2>From 14 controls to 5.</h2>
+  <p class="deck">The new top bar exists to answer one question: <em>which plot am I in, and what do I want to do with it as a whole?</em> Tools have left. Settings have left. Per-selection controls have left. What stays is identity, the scene name, and the rare actions that operate on the entire scene.</p>
+
+  <div class="compare">
+    <div class="col now">
+      <h5><span class="dot"></span>Today · 14 controls + 4 readouts</h5>
+      <div class="frame-stage now-app" style="aspect-ratio: 700 / 90; overflow-x: hidden;">
+        <div class="now-toolbar" style="height: 44px;">
+          <div class="now-section first">
+            <span class="now-strong">Koloniträdgårdsplaneraren</span>
+          </div>
+          <div class="now-section">
+            <button class="now-btn">+ Rektangel</button>
+            <button class="now-btn dim">– Ta bort</button>
+          </div>
+          <div class="now-section">
+            <button class="now-btn">↶ Ångra</button>
+          </div>
+          <div class="now-section">
+            <button class="now-btn">Spara JSON</button>
+            <button class="now-btn">Ladda JSON</button>
+          </div>
+          <div class="now-section">
+            <button class="now-btn">Skapa tomt</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col next">
+      <h5><span class="dot"></span>Proposed · 5 elements</h5>
+      <div class="frame-stage next-app" style="aspect-ratio: 700 / 90;">
+        <div class="next-topbar">
+          <div class="next-brand">
+            <svg class="brand" viewBox="0 0 48 48"><use href="#i-logo"/></svg>
+            <span class="wordmark">PlotPlaner</span>
+          </div>
+          <div class="next-brand-divider"></div>
+          <div class="next-scene">
+            <span class="name">Norra tomten</span>
+            <svg class="svg-i chev" width="14" height="14"><use href="#i-chev"/></svg>
+            <span class="saved">sparad · 14:32</span>
+          </div>
+          <div class="next-spacer"></div>
+          <div class="next-iconbtn" title="Hjälp"><svg width="16" height="16"><use href="#i-question"/></svg></div>
+          <div class="next-iconbtn" title="Tema"><svg width="16" height="16"><use href="#i-moon"/></svg></div>
+          <div class="next-pillbtn"><svg width="14" height="14"><use href="#i-share"/></svg>&nbsp;Dela</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="heading">What's left, and what isn't</h3>
+  <div class="prose">
+    <p>The wordmark stops being a label and becomes a brand mark with a small plot-rectangle glyph beside it. Beside the wordmark, the <strong>scene title</strong> takes the position that used to belong to a debugging subtitle ("geometry sandbox"). The gardener's plot now has a name; clicking the chevron opens the scene menu (see §10). A small mono timestamp tells them, quietly, that autosave just ran.</p>
+    <p>On the right: a help affordance, the theme toggle (paper / evening), and one button — <strong>Dela</strong> — which is the new home for save/export. Three icons that don't shout, plus one verb. That's it.</p>
+    <p>Everything else has moved. <em>Lägg till bädd</em> and <em>Ta bort</em> are now tools on the left rail; <em>Ångra / Gör om</em> are keyboard-only with a small ⌘Z hint under the scene name; <em>Spara / Ladda JSON</em> are inside the scene menu; <em>Skapa tomt</em> is now the empty-state hero (§09) and also a left-rail tool; per-selection controls are floating handles on the canvas (§06); grid snap, north rotation, bed depth, shadow toggle are inside an inline <em>Inställningar</em> popover that lives next to the scene name and is closed by default.</p>
+  </div>
+</section>
+
+<!-- ============ 05 Tool rail ============ -->
+<section class="section" id="rail">
+  <div class="section-num">05 / The left tool rail</div>
+  <h2>The gardener's hand.</h2>
+  <p class="deck">A vertical rail of 40 px tool squares on the left edge. This is the pattern returning hobbyists already know from every drafting tool they've ever used — Figma, AutoCAD, Procreate, Affinity. It's where you go to switch what your cursor <em>is</em>.</p>
+
+  <div class="frame">
+    <div class="frame-stage next-app" style="aspect-ratio: 1400 / 520;">
+      <div style="display: flex; height: 100%;">
+        <div class="next-rail">
+          <div class="tool active" title="Markera (V)"><svg width="18" height="18"><use href="#i-cursor"/></svg><span class="kbd">V</span></div>
+          <div class="tool" title="Lägg till bädd (B)"><svg width="18" height="18"><use href="#i-bed"/></svg><span class="kbd">B</span></div>
+          <div class="tool" title="Lägg till vägg (W)"><svg width="18" height="18"><use href="#i-wall"/></svg><span class="kbd">W</span></div>
+          <div class="tool" title="Tomtgräns (P)"><svg width="18" height="18"><use href="#i-plot"/></svg><span class="kbd">P</span></div>
+          <div class="tool" title="Mät (M)"><svg width="18" height="18"><use href="#i-ruler"/></svg><span class="kbd">M</span></div>
+          <div class="tool div"></div>
+          <div class="tool" title="Snap till rutnät (G)"><svg width="18" height="18"><use href="#i-grid"/></svg><span class="kbd">G</span></div>
+          <div class="tool" title="Norr / rotation (N)"><svg width="18" height="18"><use href="#i-compass"/></svg><span class="kbd">N</span></div>
+        </div>
+        <div class="next-canvas-wrap">
+          <div class="next-canvas-grid"></div>
+          <!-- A modest scene -->
+          <div class="plot-boundary" style="top: 60px; left: 80px; right: 200px; bottom: 80px;"></div>
+          <div class="bed" style="top: 120px; left: 160px; width: 200px; height: 80px;"></div>
+          <div class="bed" style="top: 232px; left: 160px; width: 320px; height: 80px;"></div>
+          <div class="bed wall" style="top: 120px; left: 540px; width: 80px; height: 280px;"></div>
+        </div>
+      </div>
+
+      <!-- Annotations -->
+      <div class="pin good" style="top: 24px; left: 76px;">1</div>
+      <div class="pin good" style="top: 70px; left: 76px;">2</div>
+      <div class="pin good" style="top: 116px; left: 76px;">3</div>
+      <div class="pin good" style="top: 162px; left: 76px;">4</div>
+      <div class="pin good" style="top: 208px; left: 76px;">5</div>
+      <div class="pin good" style="top: 300px; left: 76px;">6</div>
+    </div>
+    <div class="frame-caption">
+      <span>Fig. 03 — Left rail · 56 px wide</span>
+      <span class="tag next">Proposed</span>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div class="callout"><div class="callout-num good">1</div><p><strong>Markera (V).</strong> <em>The default cursor. Click a bed to select. Always available as Escape.</em></p></div>
+    <div class="callout"><div class="callout-num good">2</div><p><strong>Lägg till bädd (B).</strong> <em>The primary verb of the whole app, with the most prominent visual treatment. Click to drop at default 1500 × 800 mm, or drag to size.</em></p></div>
+    <div class="callout"><div class="callout-num good">3</div><p><strong>Lägg till vägg (W).</strong> <em>Same metaphor; produces a rectangle with <span class="mono">wallHeight &gt; 0</span> and the warm-grey wall tone. Walls cast shadow.</em></p></div>
+    <div class="callout"><div class="callout-num good">4</div><p><strong>Tomtgräns (P).</strong> <em>The dashed-ochre plot boundary. Once per plot — the rail dims this tool after it's set, but never hides it (you can re-draw).</em></p></div>
+    <div class="callout"><div class="callout-num good">5</div><p><strong>Mät (M).</strong> <em>New. Click two points to read distance in mm/m. The gardener no longer has to do math on the inspector's numbers.</em></p></div>
+    <div class="callout"><div class="callout-num good">6</div><p><strong>Grid snap &amp; north.</strong> <em>Separated by a hairline divider — these are modifiers, not creators. Snap toggles on click; long-press opens a "grid step (mm)" inline picker. Compass opens a small rotation dial.</em></p></div>
+  </div>
+</section>
+
+<!-- ============ 06 Canvas / contextual UI ============ -->
+<section class="section" id="canvas">
+  <div class="section-num">06 / Canvas &amp; contextual UI</div>
+  <h2>Per-selection controls move <em>onto</em> the bed.</h2>
+  <p class="deck">Today, rotating a bed means looking up — to the top bar — and clicking <em>↺ -15°</em> next to text reading <em>Vald: rect-2</em>. The mouse leaves the work to operate the work. The fix is the pattern every modern canvas app uses: a small floating toolbar that <strong>follows the selection</strong>.</p>
+
+  <div class="frame">
+    <div class="frame-stage next-app" style="aspect-ratio: 1400 / 580;">
+      <div style="display: flex; height: 100%;">
+        <div class="next-rail">
+          <div class="tool active"><svg width="18" height="18"><use href="#i-cursor"/></svg><span class="kbd">V</span></div>
+          <div class="tool"><svg width="18" height="18"><use href="#i-bed"/></svg><span class="kbd">B</span></div>
+          <div class="tool"><svg width="18" height="18"><use href="#i-wall"/></svg><span class="kbd">W</span></div>
+          <div class="tool"><svg width="18" height="18"><use href="#i-plot"/></svg><span class="kbd">P</span></div>
+          <div class="tool"><svg width="18" height="18"><use href="#i-ruler"/></svg><span class="kbd">M</span></div>
+          <div class="tool div"></div>
+          <div class="tool"><svg width="18" height="18"><use href="#i-grid"/></svg><span class="kbd">G</span></div>
+          <div class="tool"><svg width="18" height="18"><use href="#i-compass"/></svg><span class="kbd">N</span></div>
+        </div>
+        <div class="next-canvas-wrap">
+          <div class="next-canvas-grid"></div>
+          <!-- Plot + beds + shadow -->
+          <div class="plot-boundary" style="top: 60px; left: 80px; width: 800px; bottom: 80px;"></div>
+          <!-- Shadow strip for the wall -->
+          <div class="bed shadow" style="top: 168px; left: 668px; width: 60px; height: 220px; transform: skewX(-10deg);"></div>
+          <div class="bed" style="top: 120px; left: 160px; width: 220px; height: 80px;"></div>
+          <div class="bed selected" style="top: 232px; left: 160px; width: 320px; height: 100px;"></div>
+          <div class="bed wall" style="top: 120px; left: 600px; width: 60px; height: 280px;"></div>
+
+          <!-- Floating selection toolbar above selected bed -->
+          <div class="float-toolbar" style="top: 188px; left: 196px;">
+            <span class="label">Bädd 2,00 × 1,00 m · 15°</span>
+            <span class="fsep"></span>
+            <div class="fbtn" title="Rotera -15°"><svg width="14" height="14" style="transform: scaleX(-1)"><use href="#i-rotate"/></svg></div>
+            <div class="fbtn" title="Rotera +15°"><svg width="14" height="14"><use href="#i-rotate"/></svg></div>
+            <span class="fsep"></span>
+            <div class="fbtn" title="Bädd / vägg"><svg width="14" height="14"><use href="#i-wall"/></svg></div>
+            <div class="fbtn" title="Duplicera"><svg width="14" height="14"><use href="#i-copy"/></svg></div>
+            <span class="fsep"></span>
+            <div class="fbtn delete" title="Ta bort"><svg width="14" height="14"><use href="#i-trash"/></svg></div>
+          </div>
+
+          <!-- 8 resize handles on the selected bed -->
+          <div style="position: absolute; top: 226px; left: 154px; width: 8px; height: 8px; background: var(--bg-surface); border: 1.5px solid var(--accent-sun); border-radius: 1px;"></div>
+          <div style="position: absolute; top: 226px; left: 314px; width: 8px; height: 8px; background: var(--bg-surface); border: 1.5px solid var(--accent-sun); border-radius: 1px;"></div>
+          <div style="position: absolute; top: 226px; left: 474px; width: 8px; height: 8px; background: var(--bg-surface); border: 1.5px solid var(--accent-sun); border-radius: 1px;"></div>
+          <div style="position: absolute; top: 278px; left: 154px; width: 8px; height: 8px; background: var(--bg-surface); border: 1.5px solid var(--accent-sun); border-radius: 1px;"></div>
+          <div style="position: absolute; top: 278px; left: 474px; width: 8px; height: 8px; background: var(--bg-surface); border: 1.5px solid var(--accent-sun); border-radius: 1px;"></div>
+          <div style="position: absolute; top: 328px; left: 154px; width: 8px; height: 8px; background: var(--bg-surface); border: 1.5px solid var(--accent-sun); border-radius: 1px;"></div>
+          <div style="position: absolute; top: 328px; left: 314px; width: 8px; height: 8px; background: var(--bg-surface); border: 1.5px solid var(--accent-sun); border-radius: 1px;"></div>
+          <div style="position: absolute; top: 328px; left: 474px; width: 8px; height: 8px; background: var(--bg-surface); border: 1.5px solid var(--accent-sun); border-radius: 1px;"></div>
+
+          <!-- Rotation handle on top -->
+          <div style="position: absolute; top: 190px; left: 318px; width: 1px; height: 36px; background: var(--accent-sun);"></div>
+          <div style="position: absolute; top: 182px; left: 314px; width: 10px; height: 10px; background: var(--bg-surface); border: 1.5px solid var(--accent-sun); border-radius: 999px;"></div>
+
+          <!-- Live measurement labels -->
+          <div style="position: absolute; top: 282px; left: 480px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); background: var(--bg-surface); padding: 2px 6px; border-radius: 2px; border: 1px solid var(--line-1);">3 200 mm</div>
+          <div style="position: absolute; top: 338px; left: 300px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-2); background: var(--bg-surface); padding: 2px 6px; border-radius: 2px; border: 1px solid var(--line-1);">1 000 mm</div>
+        </div>
+      </div>
+
+      <!-- Annotations -->
+      <div class="pin good" style="top: 152px; left: 280px;">1</div>
+      <div class="pin good" style="top: 196px; left: 540px;">2</div>
+      <div class="pin good" style="top: 270px; left: 540px;">3</div>
+      <div class="pin good" style="top: 168px; left: 320px;">4</div>
+    </div>
+    <div class="frame-caption">
+      <span>Fig. 04 — Selected bed, with floating toolbar &amp; live dimensions</span>
+      <span class="tag next">Proposed</span>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div class="callout"><div class="callout-num good">1</div><p><strong>Floating selection toolbar.</strong> <em>Appears 8 px above the selected rectangle. Carries the per-bed verbs that used to live in the top bar — rotate ±15°, convert to wall, duplicate, delete — plus an at-a-glance label ("Bädd · 2,00 × 1,00 m · 15°"). Disappears on deselect.</em></p></div>
+    <div class="callout"><div class="callout-num good">2</div><p><strong>Live dimension labels.</strong> <em>While dragging or resizing, each edge shows its mm dimension in mono next to it. The gardener never has to read the inspector during a manipulation.</em></p></div>
+    <div class="callout"><div class="callout-num good">3</div><p><strong>Eight resize handles + a rotation handle.</strong> <em>The codebase already has hit-targets via Handles.tsx; this just makes them visible. The rotation handle is a circle attached to the top edge by a 36 px lead — same convention as Figma / Sketch.</em></p></div>
+    <div class="callout"><div class="callout-num good">4</div><p><strong>The label echoes the inspector.</strong> <em>For the gardener actively dragging, the small label above the bed says everything the right panel says. The inspector is for sitting and reading; the floating toolbar is for working.</em></p></div>
+  </div>
+
+  <h3 class="heading">Snapping &amp; modifier keys</h3>
+  <div class="prose">
+    <ul>
+      <li><strong>Default snap is on.</strong> Returning hobbyists move beds in whole-centimetre increments far more than free-floating ones. The codebase ships with <span class="mono">snapToGrid: false</span> — we flip that.</li>
+      <li><strong>Hold <span class="mono">Alt</span> to suspend snap</strong> mid-drag, the convention from every CAD tool. The grid checkbox in the top bar disappears.</li>
+      <li><strong>Hold <span class="mono">Shift</span> while rotating</strong> for free rotation; release for 15° detents. (Today, only 15° detents exist.)</li>
+      <li><strong>Hold <span class="mono">Shift</span> while resizing</strong> to keep aspect ratio.</li>
+      <li><strong>Arrow keys nudge</strong> the selected bed by one grid step (or one mm with Shift).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ 07 Inspector ============ -->
+<section class="section" id="inspector">
+  <div class="section-num">07 / The right inspector</div>
+  <h2>Read like a notebook page, not a console log.</h2>
+  <p class="deck">The current inspector is faithful to its data shape and almost nothing else — eight stacked rows of uppercase labels and raw values, with no hierarchy and no point of entry. The redesign keeps the same fields but rebuilds the page around <em>what the gardener actually wants to know</em>: how much sun does this bed get?</p>
+
+  <div class="compare">
+    <div class="col now">
+      <h5><span class="dot"></span>Today · 240 px, raw rows</h5>
+      <div class="frame-stage now-app" style="aspect-ratio: 280 / 420; padding: 0;">
+        <div class="now-sidepanel" style="height: 100%; width: 100%;">
+          <div class="title">Bädd-inspektor</div>
+          <div class="row"><div class="label">ID</div><div class="value">rect-2</div></div>
+          <div class="row"><div class="label">Mått</div><div class="value">2000 × 1000 mm</div></div>
+          <div class="row"><div class="label">Position (center)</div><div class="value">(4500, 5500) mm</div></div>
+          <div class="row"><div class="label">Rotation</div><div class="value">15.0°</div></div>
+          <div class="row"><div class="label">Vägghöjd</div><div class="value">—</div></div>
+          <div class="row"><div class="label">Area</div><div class="value">2.00 m²</div></div>
+          <div class="row"><div class="label">Jordvolym (300 mm djup)</div><div class="value">600 L</div></div>
+          <div class="divider">
+            <div class="row"><div class="label">Soltimmar (midsommar)</div><div class="value">7 h</div></div>
+            <div class="footnote">Aggregerad analys över 06–20 på fast referensdatum (oberoende av tidsreglaget).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col next">
+      <h5><span class="dot"></span>Proposed · 320 px, hero + sections</h5>
+      <div class="frame-stage next-app" style="aspect-ratio: 280 / 420;">
+        <div class="next-inspector" style="height: 100%; width: 100%; border-left: 0;">
+          <div>
+            <div class="hed">Bädd 2</div>
+            <div class="sub">Mått, jord och sol för den valda bädden.</div>
+          </div>
+          <div>
+            <div class="sectitle"><span>Soltimmar vid midsommar</span></div>
+            <div class="hero">7,2<span class="u">h</span></div>
+            <div class="sub" style="margin-top: 6px;">Bra för tomat och paprika. Aggregerad analys 06–20, oberoende av tidsreglaget.</div>
+          </div>
+          <hr/>
+          <div>
+            <div class="sectitle"><span>Geometri</span><span style="font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-3); text-transform: none; letter-spacing: 0;">tryck för att ändra</span></div>
+            <div class="row"><div class="l">Mått</div><div class="v">2 000 × 1 000<span class="u">mm</span></div></div>
+            <div class="row"><div class="l">Position</div><div class="v">4 500, 5 500<span class="u">mm</span></div></div>
+            <div class="row"><div class="l">Rotation</div><div class="v">15°</div></div>
+            <div class="row"><div class="l">Vägghöjd</div><div class="v" style="color: var(--ink-3);">— ingen</div></div>
+          </div>
+          <div>
+            <div class="sectitle"><span>Beräkningar</span></div>
+            <div class="row"><div class="l">Area</div><div class="v">2,00<span class="u">m²</span></div></div>
+            <div class="row"><div class="l">Jord (300 mm djup)</div><div class="v">600<span class="u">L</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="heading">Three deliberate changes</h3>
+  <div class="prose">
+    <p><strong>1. Sun hours becomes the hero.</strong> A 48 px mono number with a small "h" sets the visual hierarchy of the panel. The single most decision-relevant value gets the most ink. A one-line plain-language gloss ("bra för tomat och paprika" / "lite för sallad — kanske rödbeta") goes underneath. Behind that line sits a small lookup keyed to a few common Nordic crops.</p>
+    <p><strong>2. Field rows are now editable in place.</strong> The current panel is read-only. The new <em>Geometri</em> section accepts direct numeric input — type 2500 into <em>Mått</em> and the bed grows. Mirrored from the floating toolbar; either surface works. Editing in the panel is for typed precision; dragging is for spatial feel.</p>
+    <p><strong>3. The empty state means something.</strong> Today: <em>"Markera en bädd för att se detaljer."</em> Proposed: the panel turns into a Scene panel — list of every bed (clickable rows, with sun-hours), total area, total soil volume, plot dimensions. The gardener gets a sense of the whole plot when nothing is selected. (See §10 for what this looks like as a full panel.)</p>
+  </div>
+</section>
+
+<!-- ============ 08 TimeSlider / sun bar ============ -->
+<section class="section" id="timebar">
+  <div class="section-num">08 / Sun &amp; time bar</div>
+  <h2>A timeline, not a slider.</h2>
+  <p class="deck">Today the time scrubber is a 140 px <span class="mono">&lt;input type="range"&gt;</span> wedged between a checkbox and a debug readout. It controls one of the most important things about the app — what the garden looks like at this moment in the sun — and gets a sliver of screen. We promote it.</p>
+
+  <div class="frame">
+    <div class="frame-stage next-app" style="aspect-ratio: 1400 / 180;">
+      <div class="next-timebar" style="height: 100%;">
+        <div class="datepill">
+          <span class="month">21 jun</span>
+          <strong style="font-weight: 500;">midsommar</strong>
+          <svg class="svg-i" width="12" height="12" style="color: var(--ink-3); margin-left: 4px;"><use href="#i-chev"/></svg>
+        </div>
+
+        <div class="scrub">
+          <div class="track"></div>
+          <div class="now-arc" style="width: 53.5%;"></div>
+          <!-- Hour ticks at 6,9,12,15,18,20 -->
+          <div class="tick" style="left: 0%;"><span class="lab">06</span></div>
+          <div class="tick" style="left: 21.4%;"><span class="lab">09</span></div>
+          <div class="tick" style="left: 42.8%;"><span class="lab">12</span></div>
+          <div class="tick" style="left: 53.5%;"></div>
+          <div class="tick" style="left: 64.3%;"><span class="lab">15</span></div>
+          <div class="tick" style="left: 85.7%;"><span class="lab">18</span></div>
+          <div class="tick" style="left: 100%;"><span class="lab">20</span></div>
+          <div class="marker" style="left: 53.5%;"></div>
+        </div>
+
+        <div class="readout"><span class="b">13:30</span> · sol 41° över horisonten · söder</div>
+
+        <div style="display: inline-flex; align-items: center; gap: 8px; padding-left: 16px; border-left: 1px solid var(--line-1); height: 32px;">
+          <div class="next-iconbtn" title="Visa skuggor (S)" style="background: var(--bg-hover);"><svg width="16" height="16"><use href="#i-eye"/></svg></div>
+          <div class="next-iconbtn" title="Animera dagen (Space)"><svg width="16" height="16" style="color: var(--ink-1);"><use href="#i-sun"/></svg></div>
+        </div>
+      </div>
+
+      <!-- Annotations -->
+      <div class="pin good" style="top: 22px; left: 24px;">1</div>
+      <div class="pin good" style="top: 22px; left: 220px;">2</div>
+      <div class="pin good" style="top: 22px; right: 280px;">3</div>
+      <div class="pin good" style="top: 22px; right: 24px;">4</div>
+    </div>
+    <div class="frame-caption">
+      <span>Fig. 05 — Sun &amp; time bar · 64 px tall, full width</span>
+      <span class="tag next">Proposed</span>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div class="callout"><div class="callout-num good">1</div><p><strong>Date as a named pill.</strong> <em>"21 jun · midsommar". The codebase already centres analysis on midsommar; we surface that. Click the chevron for a small date picker; the picker remembers common dates (midsommar, vårdagjämning, höstdagjämning).</em></p></div>
+    <div class="callout"><div class="callout-num good">2</div><p><strong>Hour ticks &amp; an arc.</strong> <em>06 → 20 with labelled ticks at 09 / 12 / 15 / 18. An ochre "now-arc" grows from sunrise to the current time, giving the gardener a felt sense of where they are in the day.</em></p></div>
+    <div class="callout"><div class="callout-num good">3</div><p><strong>Plain-language readout.</strong> <em>"sol 41° över horisonten · söder" replaces "Sol: alt 41.2°, az 187.5°". A tooltip on the readout shows the raw values for anyone who wants them; in a dev mode flag, the raw form is the default.</em></p></div>
+    <div class="callout"><div class="callout-num good">4</div><p><strong>Shadow toggle + Animate.</strong> <em>The eye-icon button toggles cast shadows. A second sun-icon button starts a 4-second animation that scrubs 06→20 — useful for "what does this bed look like across the whole day".</em></p></div>
+  </div>
+
+  <p class="prose" style="margin-top: 24px;">A subtle but important detail: this is the <em>interactive preview time</em> only (it's what drives shadow rendering on canvas). The aggregate sun-hours number in the inspector is a separate calculation across the whole day — the inspector caption already says so, and we keep that note. They don't share state, and the visual separation between the right panel's hero number and the bottom bar's scrubber reinforces that.</p>
+</section>
+
+<!-- ============ 09 Empty / onboarding ============ -->
+<section class="section" id="empty">
+  <div class="section-num">09 / Empty state &amp; onboarding</div>
+  <h2>One obvious next move.</h2>
+  <p class="deck">A returning hobbyist starting a new plot today sees a dark grid canvas, a 14-control toolbar, and no instructions. They have to know that "Skapa tomt" exists, where it lives, and what dimensions it accepts. The first move is invisible. We fix this by making the empty canvas itself <em>be</em> the call to action.</p>
+
+  <div class="frame">
+    <div class="frame-stage next-app" style="aspect-ratio: 1400 / 720;">
+      <div style="display: flex; flex-direction: column; height: 100%;">
+        <!-- Top bar (slim) -->
+        <div class="next-topbar">
+          <div class="next-brand">
+            <svg class="brand" viewBox="0 0 48 48"><use href="#i-logo"/></svg>
+            <span class="wordmark">PlotPlaner</span>
+          </div>
+          <div class="next-brand-divider"></div>
+          <div class="next-scene"><span class="name" style="color: var(--ink-3);">Ny tomt</span></div>
+          <div class="next-spacer"></div>
+          <div class="next-pillbtn">Mina scener</div>
+        </div>
+
+        <div style="flex: 1; display: flex; min-height: 0;">
+          <div class="next-rail">
+            <div class="tool"><svg width="18" height="18"><use href="#i-cursor"/></svg><span class="kbd">V</span></div>
+            <div class="tool" style="opacity: 0.35;"><svg width="18" height="18"><use href="#i-bed"/></svg><span class="kbd">B</span></div>
+            <div class="tool" style="opacity: 0.35;"><svg width="18" height="18"><use href="#i-wall"/></svg><span class="kbd">W</span></div>
+            <div class="tool active"><svg width="18" height="18"><use href="#i-plot"/></svg><span class="kbd">P</span></div>
+            <div class="tool" style="opacity: 0.35;"><svg width="18" height="18"><use href="#i-ruler"/></svg><span class="kbd">M</span></div>
+          </div>
+          <div class="next-canvas-wrap">
+            <div class="next-canvas-grid"></div>
+
+            <!-- Empty-state hero -->
+            <div style="position: absolute; inset: 0; display: grid; place-items: center;">
+              <div style="text-align: center; max-width: 520px;">
+                <div style="font-family: var(--font-display); font-size: 36px; font-weight: 500; line-height: 1.1; letter-spacing: -0.02em; color: var(--ink-1); margin-bottom: 12px;">Börja med att rita din tomt.</div>
+                <p style="font-size: 15.5px; color: var(--ink-2); line-height: 1.5; margin: 0 0 28px;">Dra en rektangel var som helst i ritningen — eller välj en vanlig storlek nedan. Du kan ändra mått när som helst.</p>
+
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                  <div class="next-pillbtn primary" style="height: 40px; padding: 0 18px;">
+                    <svg width="14" height="14"><use href="#i-plot"/></svg>&nbsp;&nbsp;Rita en tomt
+                  </div>
+                  <div class="next-pillbtn" style="height: 40px;">Kolonilott · 10 × 10 m</div>
+                  <div class="next-pillbtn" style="height: 40px;">Radhusträdgård · 8 × 5 m</div>
+                  <div class="next-pillbtn" style="height: 40px;">Villaträdgård · 15 × 12 m</div>
+                </div>
+
+                <div style="margin-top: 32px; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.08em;">
+                  Genväg: <span style="background: var(--bg-surface); border: 1px solid var(--line-1); border-bottom-width: 2px; border-radius: 4px; padding: 2px 6px;">P</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="next-inspector">
+            <div>
+              <div class="hed">Välkommen tillbaka.</div>
+              <div class="sub">Tre senaste tomter — eller börja om från noll till höger.</div>
+            </div>
+            <div>
+              <div class="sectitle"><span>Senaste tomter</span></div>
+              <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+                <div style="display: flex; justify-content: space-between; padding: 8px 10px; background: var(--bg-paper); border: 1px solid var(--line-1); border-radius: 6px;">
+                  <span style="font-size: 13.5px;">Norra tomten</span>
+                  <span style="font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2);">12 × 8 m · 4 bäddar</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px 10px; background: var(--bg-paper); border: 1px solid var(--line-1); border-radius: 6px;">
+                  <span style="font-size: 13.5px;">Kolonilott Tantolunden</span>
+                  <span style="font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2);">10 × 10 m · 7 bäddar</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 8px 10px; background: var(--bg-paper); border: 1px solid var(--line-1); border-radius: 6px;">
+                  <span style="font-size: 13.5px;">Norra tomten · plan B</span>
+                  <span style="font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-2);">12 × 8 m · 6 bäddar</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Annotations -->
+      <div class="pin good" style="top: 230px; left: 410px;">1</div>
+      <div class="pin good" style="top: 388px; left: 410px;">2</div>
+      <div class="pin good" style="top: 478px; left: 410px;">3</div>
+      <div class="pin good" style="top: 152px; right: 380px;">4</div>
+    </div>
+    <div class="frame-caption">
+      <span>Fig. 06 — Empty state, returning gardener with prior scenes</span>
+      <span class="tag next">Proposed</span>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div class="callout"><div class="callout-num good">1</div><p><strong>One obvious next move.</strong> <em>The canvas itself contains the prompt. The display headline ("Börja med att rita din tomt.") sits over the grid in 36 px Montserrat — calm, instructional, sentence-cased.</em></p></div>
+    <div class="callout"><div class="callout-num good">2</div><p><strong>One verb, three shortcuts.</strong> <em>"Rita en tomt" is the primary; three named plot sizes — kolonilott, radhusträdgård, villaträdgård — are the common shortcuts. Each is a single click that draws the boundary at a sensible default and selects it for resizing.</em></p></div>
+    <div class="callout"><div class="callout-num good">3</div><p><strong>Keyboard hint, visible.</strong> <em>The "P" key glyph below the hero — quietly telling the gardener that this app rewards keyboard use, without being a tutorial.</em></p></div>
+    <div class="callout"><div class="callout-num good">4</div><p><strong>Recent scenes, where the inspector usually sits.</strong> <em>For a returning hobbyist, the most useful "selection" before they click is the list of plots they've drawn before. The right panel becomes a scene picker when the canvas is empty.</em></p></div>
+  </div>
+
+  <h4 class="heading">Subsequent empty states</h4>
+  <div class="prose">
+    <p>The same pattern handles the next two empty states. <strong>Plot drawn, no beds:</strong> the canvas overlay becomes <em>"Bra. Klicka var som helst för att lägga till en bädd."</em> with the kbd hint <span class="mono">B</span>. The right panel turns into the Scene panel showing plot dimensions and "0 bäddar". <strong>One bed, nothing selected:</strong> no overlay; the right panel shows the Scene panel with the single bed listed. The chrome never explains what's already obvious from the drawing.</p>
+  </div>
+</section>
+
+<!-- ============ 10 Scenes ============ -->
+<section class="section" id="scenes">
+  <div class="section-num">10 / Scene management &amp; save/load</div>
+  <h2>Files, not "Spara JSON".</h2>
+  <p class="deck">Today, saving means clicking <em>Spara JSON</em>, the browser downloads <span class="mono">scene.json</span>, and the gardener has to remember where they put it. Loading means clicking <em>Ladda JSON</em>, finding the file again, and accepting that the app forgot everything. This is fine for a debugging sandbox; it is wrong for the only file your gardener cares about.</p>
+
+  <div class="frame">
+    <div class="frame-stage next-app" style="aspect-ratio: 1400 / 460;">
+      <div style="display: flex; flex-direction: column; height: 100%;">
+        <div class="next-topbar">
+          <div class="next-brand">
+            <svg class="brand" viewBox="0 0 48 48"><use href="#i-logo"/></svg>
+            <span class="wordmark">PlotPlaner</span>
+          </div>
+          <div class="next-brand-divider"></div>
+          <div class="next-scene" style="background: var(--bg-hover); border-radius: 4px;">
+            <span class="name">Norra tomten</span>
+            <svg class="svg-i" width="14" height="14" style="color: var(--ink-1); transform: rotate(180deg);"><use href="#i-chev"/></svg>
+            <span class="saved">sparad · 14:32</span>
+          </div>
+          <div class="next-spacer"></div>
+          <div class="next-pillbtn">Dela</div>
+        </div>
+        <div style="flex: 1; background: var(--bg-canvas); position: relative;">
+          <div class="next-canvas-grid"></div>
+
+          <!-- Dropdown menu -->
+          <div style="position: absolute; top: 8px; left: 168px; width: 320px; background: var(--bg-surface); border: 1px solid var(--line-1); border-radius: 8px; box-shadow: var(--shadow-2); padding: 8px;">
+            <div style="font-size: 11px; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 10px 10px; font-weight: 500;">Den här tomten</div>
+            <div style="display: flex; flex-direction: column;">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 9px 10px; border-radius: 4px; background: var(--bg-hover);">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div style="width: 20px; height: 20px; border: 1.5px dashed var(--accent-sun); border-radius: 2px;"></div>
+                  <span style="font-size: 14px;">Norra tomten</span>
+                </div>
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-2);">14:32</span>
+              </div>
+              <div style="display: flex; flex-direction: column; padding: 4px 0;">
+                <div style="padding: 7px 10px; font-size: 13.5px; color: var(--ink-1); display: flex; justify-content: space-between;"><span>Byt namn…</span></div>
+                <div style="padding: 7px 10px; font-size: 13.5px; color: var(--ink-1); display: flex; justify-content: space-between;"><span>Duplicera</span><span style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-3);">⌘D</span></div>
+                <div style="padding: 7px 10px; font-size: 13.5px; color: var(--ink-1); display: flex; justify-content: space-between;"><span>Spara en kopia…</span></div>
+              </div>
+              <div style="height: 1px; background: var(--line-1); margin: 6px 6px;"></div>
+              <div style="font-size: 11px; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 10px;">Senaste</div>
+              <div style="padding: 8px 10px; display: flex; justify-content: space-between; font-size: 13.5px;"><span>Kolonilott Tantolunden</span><span style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-2);">7 bäddar</span></div>
+              <div style="padding: 8px 10px; display: flex; justify-content: space-between; font-size: 13.5px;"><span>Norra tomten · plan B</span><span style="font-family: var(--font-mono); font-size: 11px; color: var(--ink-2);">6 bäddar</span></div>
+              <div style="height: 1px; background: var(--line-1); margin: 6px 6px;"></div>
+              <div style="display: flex; flex-direction: column; padding: 4px 0;">
+                <div style="padding: 7px 10px; font-size: 13.5px; color: var(--ink-1);">Ny tomt</div>
+                <div style="padding: 7px 10px; font-size: 13.5px; color: var(--ink-1); display: flex; justify-content: space-between;"><span>Importera JSON…</span></div>
+                <div style="padding: 7px 10px; font-size: 13.5px; color: var(--ink-1); display: flex; justify-content: space-between;"><span>Exportera som JSON</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="position: absolute; right: 24px; bottom: 24px; font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); background: var(--bg-surface); padding: 6px 10px; border: 1px solid var(--line-1); border-radius: 6px;">
+            Allt sparas i din webbläsare. Exportera JSON för säkerhetskopia.
+          </div>
+        </div>
+      </div>
+
+      <!-- Annotations -->
+      <div class="pin good" style="top: 16px; left: 168px;">1</div>
+      <div class="pin good" style="top: 154px; left: 460px;">2</div>
+      <div class="pin good" style="top: 270px; left: 460px;">3</div>
+      <div class="pin good" style="bottom: 16px; right: 320px;">4</div>
+    </div>
+    <div class="frame-caption">
+      <span>Fig. 07 — Scene menu opened from the top bar</span>
+      <span class="tag next">Proposed</span>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div class="callout"><div class="callout-num good">1</div><p><strong>The scene is named, in the top bar.</strong> <em>"Norra tomten · sparad 14:32" is permanently visible. Clicking the chevron opens the scene menu. Click the name to rename in place.</em></p></div>
+    <div class="callout"><div class="callout-num good">2</div><p><strong>Local-first autosave.</strong> <em>Every change writes to <span class="mono">localStorage</span> on a 600 ms debounce. "Spara JSON" becomes "Exportera som JSON" — a backup action, not a primary action.</em></p></div>
+    <div class="callout"><div class="callout-num good">3</div><p><strong>Multiple scenes, listed.</strong> <em>The codebase today treats the app as having one current scene. The new menu lists every named scene the gardener has, with "ny tomt", "duplicera", and "importera JSON" as creation paths.</em></p></div>
+    <div class="callout"><div class="callout-num good">4</div><p><strong>Honest about storage.</strong> <em>A small mono note in the corner reminds the gardener their work lives in this browser. Exporting JSON is offered as a backup, not as the save model.</em></p></div>
+  </div>
+
+  <h4 class="heading">Why this matters more than it looks</h4>
+  <p class="prose">For a returning hobbyist, the single biggest UX failure of today's app is that <em>scene.json</em> is the system of record. They open the planner three weeks later, see a blank canvas, and have to find a file in their Downloads folder. By making the browser remember, and treating JSON export as a backup convenience, the app stops being a sandbox and starts being a tool you trust.</p>
+</section>
+
+<!-- ============ 11 Move table ============ -->
+<section class="section" id="movetable">
+  <div class="section-num">11 / What moves where</div>
+  <h2>Every control in today's UI, accounted for.</h2>
+  <p class="deck">No control is dropped silently. Each one in the current Toolbar.tsx is either moved to a new surface, hidden behind a settings popover, demoted to a tooltip, or replaced by a contextual affordance. This table is the migration map.</p>
+
+  <table class="move">
+    <thead>
+      <tr>
+        <th>Today (Toolbar.tsx)</th>
+        <th>Tomorrow</th>
+        <th>Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="was">Koloniträdgårdsplaneraren · "geometry sandbox"</td>
+        <td class="now">Top bar · wordmark + scene title</td>
+        <td class="why">The wordmark stays as identity. The "geometry sandbox" subtitle goes away — it's an internal name the gardener doesn't need. The scene title takes its place.</td>
+      </tr>
+      <tr>
+        <td class="was">+ Rektangel</td>
+        <td class="now">Left rail · Lägg till bädd (B)</td>
+        <td class="why">The primary verb of the app needs a permanent visual home — not a button among ten, but the second tool down on a rail. Also renamed: a bed is what the gardener thinks; a rectangle is what the code thinks.</td>
+      </tr>
+      <tr>
+        <td class="was">– Ta bort</td>
+        <td class="now">Floating selection toolbar · trash icon · Backspace key</td>
+        <td class="why">Belongs to the object, not the chrome. Only useful while a bed is selected, so it only exists while a bed is selected.</td>
+      </tr>
+      <tr>
+        <td class="was">↶ Ångra · ↷ Gör om</td>
+        <td class="now">Keyboard only (⌘Z / ⌘⇧Z) · small kbd hint near scene name</td>
+        <td class="why">Already exists as keyboard. Visual buttons add toolbar weight without much benefit on a desktop tool. We keep a small visual hint to teach the shortcuts.</td>
+      </tr>
+      <tr>
+        <td class="was">Spara JSON · Ladda JSON</td>
+        <td class="now">Scene menu · "Exportera som JSON" / "Importera JSON"</td>
+        <td class="why">Save/load is no longer the storage model — autosave is. JSON becomes the backup model, demoted into the scene menu where backup actions belong.</td>
+      </tr>
+      <tr>
+        <td class="was">Vald: rect-2</td>
+        <td class="now">Floating toolbar label + inspector header</td>
+        <td class="why">"rect-2" is a debug id. The gardener sees "Bädd 2" or, if named, "Tomatbädd". Two surfaces echo the same name so it's always visible.</td>
+      </tr>
+      <tr>
+        <td class="was">↺ -15° · ↻ +15°</td>
+        <td class="now">Floating selection toolbar + rotation handle on canvas</td>
+        <td class="why">Per-bed verbs live on the bed. The rotation handle is the primary gesture; the toolbar buttons are the precise / discoverable backup.</td>
+      </tr>
+      <tr>
+        <td class="was">wallHeight (mm) input</td>
+        <td class="now">Inspector · Geometri · "Vägghöjd" editable row</td>
+        <td class="why">A measurement of the selected object. Belongs to the inspector, not the toolbar. The floating toolbar offers a quick "bädd / vägg" toggle that sets wall to a sensible default.</td>
+      </tr>
+      <tr>
+        <td class="was">Datum input · Soltid range · Sol: alt 41.2°, az 187.5°</td>
+        <td class="now">Bottom time bar · full width</td>
+        <td class="why">Scrubbing through the day's sun is half the magic of the app. It deserves its own surface, not an inline range input. The raw degrees go behind a hover.</td>
+      </tr>
+      <tr>
+        <td class="was">Skuggor checkbox</td>
+        <td class="now">Time bar · eye-icon toggle · S key</td>
+        <td class="why">A shadow toggle wants to be visible next to the time scrubber that controls the shadows. Same surface, same concept.</td>
+      </tr>
+      <tr>
+        <td class="was">Skapa tomt</td>
+        <td class="now">Empty state hero · Left rail (P) · Inställningar popover (redraw)</td>
+        <td class="why">A first-time action becomes the empty-state's hero call to action. A redraw is rare enough to live in a settings popover.</td>
+      </tr>
+      <tr>
+        <td class="was">Snap checkbox + grid step (mm) input</td>
+        <td class="now">Left rail · grid icon (long-press for step) · G key · Alt to suspend</td>
+        <td class="why">Snap is a modifier, not a chrome setting. The grid step is set once and lives in the long-press popover; <span class="mono">Alt</span> covers the "just this once" case.</td>
+      </tr>
+      <tr>
+        <td class="was">N-rotation° input</td>
+        <td class="now">Left rail · compass icon · click to open small rotation dial</td>
+        <td class="why">North rotation is set once per plot. It still needs to be obvious (it affects sun calculation), but it doesn't need to occupy 60 px in the top bar.</td>
+      </tr>
+      <tr>
+        <td class="was">Bäddhöjd (mm) input</td>
+        <td class="now">Inspector · Beräkningar · click "(300 mm)" to edit</td>
+        <td class="why">Bed depth affects soil-volume math. It belongs next to the soil-volume number it modifies, not in the global chrome.</td>
+      </tr>
+      <tr>
+        <td class="was">Σ 12.30 m² · 410 L jord</td>
+        <td class="now">Inspector empty state (Scene panel) + status row</td>
+        <td class="why">Totals are reference values. They live with the scene overview when nothing is selected, and quietly in the status row at all times.</td>
+      </tr>
+      <tr>
+        <td class="was">✓ inga kollisioner / ⚠ N kollision(er)</td>
+        <td class="now">Status row, bottom edge · click to highlight offending beds</td>
+        <td class="why">Status messages don't earn a top-bar slot. We keep the colour cue (sage green vs terracotta red), make it clickable to find collisions, and replace "kollision(er)" with plain Swedish ("2 bäddar krockar").</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ============ 12 Keys ============ -->
+<section class="section" id="keys">
+  <div class="section-num">12 / Keyboard</div>
+  <h2>Promoted to first-class.</h2>
+  <p class="deck">Every primary verb gets a single-key shortcut, shown on the tool icon (not just in a tooltip). This is what makes the rail and the floating toolbar feel like a workshop instead of a website.</p>
+
+  <h4 class="heading">Tools</h4>
+  <div class="kbd-grid">
+    <div class="kbd-row"><span class="kbd-key">V</span><div class="desc">Markera <em>· default cursor</em></div></div>
+    <div class="kbd-row"><span class="kbd-key">B</span><div class="desc">Lägg till bädd <em>· primary verb</em></div></div>
+    <div class="kbd-row"><span class="kbd-key">W</span><div class="desc">Lägg till vägg <em>· bed with wallHeight</em></div></div>
+    <div class="kbd-row"><span class="kbd-key">P</span><div class="desc">Tomtgräns <em>· draw plot boundary</em></div></div>
+    <div class="kbd-row"><span class="kbd-key">M</span><div class="desc">Mät <em>· two-click ruler</em></div></div>
+    <div class="kbd-row"><span class="kbd-key">G</span><div class="desc">Snap till rutnät</div></div>
+    <div class="kbd-row"><span class="kbd-key">N</span><div class="desc">Norr-rotation</div></div>
+    <div class="kbd-row"><span class="kbd-key">S</span><div class="desc">Visa / dölj skuggor</div></div>
+    <div class="kbd-row"><span class="kbd-key">Esc</span><div class="desc">Avmarkera, gå till Markera</div></div>
+  </div>
+
+  <h4 class="heading">Selection</h4>
+  <div class="kbd-grid">
+    <div class="kbd-row"><span class="kbd-key">R</span><div class="desc">Rotera +15°</div></div>
+    <div class="kbd-row"><span class="kbd-key">⇧R</span><div class="desc">Rotera -15°</div></div>
+    <div class="kbd-row"><span class="kbd-key">⌫</span><div class="desc">Ta bort vald</div></div>
+    <div class="kbd-row"><span class="kbd-key">⌘D</span><div class="desc">Duplicera</div></div>
+    <div class="kbd-row"><span class="kbd-key">←↑→↓</span><div class="desc">Nudga ett rutsteg <em>· Shift = 1 mm</em></div></div>
+    <div class="kbd-row"><span class="kbd-key">Alt</span><div class="desc"><em>(hold)</em> tillfälligt av snap</div></div>
+  </div>
+
+  <h4 class="heading">Time &amp; scene</h4>
+  <div class="kbd-grid">
+    <div class="kbd-row"><span class="kbd-key">[</span><div class="desc">Tid -15 min</div></div>
+    <div class="kbd-row"><span class="kbd-key">]</span><div class="desc">Tid +15 min</div></div>
+    <div class="kbd-row"><span class="kbd-key">Space</span><div class="desc">Animera dagen 06→20</div></div>
+    <div class="kbd-row"><span class="kbd-key">⌘Z</span><div class="desc">Ångra <em>· redan implementerad</em></div></div>
+    <div class="kbd-row"><span class="kbd-key">⌘⇧Z</span><div class="desc">Gör om <em>· redan implementerad</em></div></div>
+    <div class="kbd-row"><span class="kbd-key">⌘/</span><div class="desc">Visa alla genvägar</div></div>
+  </div>
+</section>
+
+<!-- ============ 13 Open questions ============ -->
+<section class="section" id="open">
+  <div class="section-num">13 / Open questions &amp; risks</div>
+  <h2>Where this plan needs decisions, not designs.</h2>
+  <p class="deck">A bold redesign of a single-developer project is a budget decision as much as a design decision. These are the choices I'd rather flag than silently make on your behalf.</p>
+
+  <div class="prose">
+    <h4 class="heading" style="margin-top: 16px;">1. Is the left rail worth the floor space?</h4>
+    <p>A 56 px rail costs roughly 4 % of canvas width on a 1440 px screen. The win is that adding beds becomes a one-key action (<span class="mono">B</span>) and the toolbar can collapse dramatically. If you'd rather optimise for canvas-first feel, the rail can become a small floating tool-popover anchored top-left, opened with <span class="mono">⌘K</span>. I recommend the visible rail — returning hobbyists discover tools they didn't know existed by glancing at it — but the floating variant is a defensible alternative if you want maximum canvas.</p>
+
+    <h4 class="heading">2. Is autosave a database call or pure local?</h4>
+    <p>The whole audit assumes <span class="mono">localStorage</span> as the storage model. That's a one-day implementation. If you have any intent to add accounts, sync, sharing, that "Dela" button in the top bar becomes a real share action, scene names become server-owned, and we need an auth boundary. The redesign works either way — but the copy ("Allt sparas i din webbläsare") only stays true under the local-only model.</p>
+
+    <h4 class="heading">3. Should "vägg" remain a property of "bädd", or become a separate object?</h4>
+    <p>The data model today flattens both into <span class="mono">Rect { wallHeight: number }</span>. The new UI treats them as different tools (B vs W), different colours (sage vs warm grey), and different verbs. That works visually with the current model, but at some point a wall might need <em>thickness</em> or <em>opacity</em> that a bed doesn't. Worth a model conversation before any of this ships.</p>
+
+    <h4 class="heading">4. How aggressive should we be about Swedish-first copy?</h4>
+    <p>I've assumed the design system's stance: <em>"in-product copy is Swedish"</em>. That means "Lägg till bädd" not "Add bed", "rita" not "draw", and so on. Where the codebase carries English nouns ("wallHeight"), I'd keep the English in code and translate at the UI boundary. If you want bilingual UI (toggle in settings), that's an extra layer of polish but easy to add on the labels in this audit.</p>
+
+    <h4 class="heading">5. What's the smallest viable first slice?</h4>
+    <p>If we ship this in one go, it's two weeks of work. If we ship it incrementally, here's the order I'd recommend, each shippable on its own:</p>
+    <ol>
+      <li><strong>Visual refresh first.</strong> Apply the design system's paper-light tokens to the existing layout. Same controls, just calmer. (~1 day.)</li>
+      <li><strong>Bottom time bar.</strong> Promote the slider out of the top bar. Big perceived win for very little code. (~1 day.)</li>
+      <li><strong>Floating selection toolbar.</strong> Remove per-selection controls from the top bar. (~1 day.)</li>
+      <li><strong>Left rail.</strong> Move Add Bed and Wall to a vertical tool palette. (~2 days.)</li>
+      <li><strong>Inspector rebuild.</strong> Sun-hours hero, editable rows, Scene-panel empty state. (~2 days.)</li>
+      <li><strong>Local autosave + scene menu.</strong> The biggest UX impact for returning users. (~3 days.)</li>
+      <li><strong>Empty state + onboarding.</strong> Once everything else is in place. (~1 day.)</li>
+    </ol>
+    <p>Steps 1–3 alone would already reduce the top bar from 14 controls to about 6, on a budget of one weekend.</p>
+  </div>
+
+  <div class="pull">
+    <p>"Decluttering isn't subtraction. It's putting each thing where the work actually happens — and trusting the gardener to find it there."</p>
+    <div class="att">— closing note</div>
+  </div>
+</section>
+
+<!-- ============ Foot ============ -->
+<footer class="foot">
+  <div>
+    <p>PlotPlaner streamlining audit · v1 · drafted 20 maj 2026.</p>
+    <p style="margin-top: 12px;">Designed against the PlotPlaner design system (paper + ink, Montserrat + Cabin + JetBrains Mono). All in-product copy in this document is illustrative; final wording to be reviewed with a Swedish native speaker.</p>
+  </div>
+  <div class="sig">Plot your garden before the spade hits the soil.</div>
+</footer>
+
+</body>
+</html>

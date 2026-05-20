@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { AppHeader } from "./AppHeader.js";
 import { Canvas } from "./Canvas.js";
 import { Toolbar } from "./Toolbar.js";
+import { TimeBar } from "./TimeBar.js";
+import { StatusRow } from "./StatusRow.js";
 import { SidePanel } from "./SidePanel.js";
 import { PlantCatalog } from "./plant-catalog/PlantCatalog.js";
 import { loadDefaultPlantCatalog } from "./plants/PlantRepository.js";
@@ -164,6 +166,27 @@ export function App() {
         return;
       }
 
+      // Skuggor på/av
+      if (e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        dispatch({ type: "toggleShadows" });
+        return;
+      }
+
+      // Skrubba förhandsgranskningstid ±15 min (clampat till 06–20)
+      if (e.key === "[" || e.key === "]") {
+        e.preventDefault();
+        const d = new Date(s.sun.dateIso);
+        const deltaH = (e.key === "]" ? 15 : -15) / 60;
+        let dec = d.getHours() + d.getMinutes() / 60 + deltaH;
+        dec = Math.min(20, Math.max(6, dec));
+        const hh = Math.floor(dec);
+        const mm = Math.round((dec - hh) * 60);
+        d.setHours(hh, mm, 0, 0);
+        dispatch({ type: "setSun", dateIso: d.toISOString() });
+        return;
+      }
+
       // Zoom in/ut centrerat på canvas-mitten (eller cursor om vi hade den)
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
@@ -311,11 +334,6 @@ export function App() {
             dispatch={dispatch}
             bedDepth={bedDepth}
             setBedDepth={setBedDepth}
-            sun={sun}
-            totalAreaM2={totalAreaM2}
-            totalSoilL={totalSoilL}
-            overlapCount={overlappingIds.size / 2}
-            touchCount={touchingIds.size / 2}
             onUndo={onUndo}
             onRedo={onRedo}
             canUndo={canUndo(historyState)}
@@ -328,23 +346,43 @@ export function App() {
             role="tabpanel"
             id="tabpanel-planera"
             aria-labelledby="tab-planera"
-            style={{ display: "flex", flex: 1, minHeight: 0 }}
+            style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
           >
-            <Canvas
-              state={state}
-              dispatch={dispatch}
+            <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+              <Canvas
+                state={state}
+                dispatch={dispatch}
+                sun={sun}
+                overlappingIds={overlappingIds}
+                touchingIds={touchingIds}
+                theme={theme}
+              />
+              <SidePanel
+                state={state}
+                bedDepth={bedDepth}
+                dispatch={dispatch}
+                overlappingIds={overlappingIds}
+                touchingIds={touchingIds}
+                plants={PLANT_CATALOG}
+              />
+            </div>
+            <TimeBar
+              dateIso={state.sun.dateIso}
+              onChange={(iso) => dispatch({ type: "setSun", dateIso: iso })}
+              showShadows={state.showShadows}
+              onToggleShadows={() => dispatch({ type: "toggleShadows" })}
               sun={sun}
-              overlappingIds={overlappingIds}
-              touchingIds={touchingIds}
-              theme={theme}
             />
-            <SidePanel
-              state={state}
-              bedDepth={bedDepth}
+            <StatusRow
+              bedCount={state.rectangles.length}
+              totalAreaM2={totalAreaM2}
+              totalSoilL={totalSoilL}
+              overlapCount={overlappingIds.size / 2}
+              touchCount={touchingIds.size / 2}
+              collisionIds={Array.from(new Set([...overlappingIds, ...touchingIds]))}
+              autoSaveStatus={autoSaveStatus}
+              latitudeDeg={state.plot.location.latitudeDeg}
               dispatch={dispatch}
-              overlappingIds={overlappingIds}
-              touchingIds={touchingIds}
-              plants={PLANT_CATALOG}
             />
           </div>
         </>

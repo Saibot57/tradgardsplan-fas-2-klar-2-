@@ -1,19 +1,15 @@
 import { useState, type Dispatch } from "react";
 import type { Action, SandboxState } from "./state.js";
 import { MIN_RECT_DIMENSION_MM, nextId } from "./state.js";
-import type { ObjectKind, SunPosition } from "@kolonitradgard/spatial-core";
+import type { ObjectKind } from "@kolonitradgard/spatial-core";
 import type { HistoryAction } from "./history.js";
-import { TimeSlider } from "./TimeSlider.js";
 import { exportCanvasAsPng, loadSceneFromFile, saveScene } from "./io.js";
-import { fmtInt, fmtNum } from "./format.js";
 import type { AutoSaveStatus } from "./useAutoSave.js";
 import type { ScenePersistence } from "./persistence.js";
 import {
-  IconCheck,
   IconCompass,
   IconFolderOpen,
   IconGrid,
-  IconLayers,
   IconPlus,
   IconRotateCCW,
   IconRotateCW,
@@ -21,7 +17,6 @@ import {
   IconSave,
   IconSquare,
   IconTrash,
-  IconTriangleAlert,
   IconUndo,
   IconRedo,
 } from "./icons.js";
@@ -31,11 +26,6 @@ interface Props {
   dispatch: Dispatch<Action | HistoryAction>;
   bedDepth: number;
   setBedDepth: (mm: number) => void;
-  sun: SunPosition;
-  totalAreaM2: number;
-  totalSoilL: number;
-  overlapCount: number;
-  touchCount: number;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -102,16 +92,6 @@ const valueStyle: React.CSSProperties = {
   color: "var(--ink-1)",
 };
 
-function formatCollisionStatus(overlap: number, touch: number): string {
-  if (overlap === 0 && touch === 0) return "Inga objekt krockar";
-  const overlapLabel =
-    overlap === 0 ? "" : overlap === 1 ? "1 objekt krockar" : `${overlap} objekt krockar`;
-  const touchLabel =
-    touch === 0 ? "" : touch === 1 ? "1 snuddar" : `${touch} snuddar`;
-  if (overlap > 0 && touch > 0) return `${overlapLabel} · ${touchLabel}`;
-  return overlapLabel || touchLabel;
-}
-
 /** Default-mått (mm) per objekttyp för Lägg-till-popovern. */
 interface KindDefaults {
   width: number;
@@ -147,11 +127,6 @@ export function Toolbar({
   dispatch,
   bedDepth,
   setBedDepth,
-  sun,
-  totalAreaM2,
-  totalSoilL,
-  overlapCount,
-  touchCount,
   onUndo,
   onRedo,
   canUndo,
@@ -209,9 +184,6 @@ export function Toolbar({
       loc: { latitudeDeg: clampedLat, longitudeDeg: clampedLon },
     });
   };
-
-  const sunAltDeg = (sun.altitudeRad * 180) / Math.PI;
-  const sunAzDeg = (sun.azimuthRad * 180) / Math.PI;
 
   return (
     <div
@@ -416,21 +388,8 @@ export function Toolbar({
         </div>
       )}
 
-      {/* Sun / time */}
+      {/* Sol-svep (skuggor + interaktiv tid flyttade till TimeBar) */}
       <div style={sectionStyle}>
-        <TimeSlider
-          dateIso={state.sun.dateIso}
-          onChange={(iso) => dispatch({ type: "setSun", dateIso: iso })}
-        />
-        <label style={{ ...inlineLabelStyle, marginLeft: 4 }} title="Visa skuggor på arbetsytan">
-          <input
-            type="checkbox"
-            checked={state.showShadows}
-            onChange={() => dispatch({ type: "toggleShadows" })}
-            data-pp-input
-          />
-          <IconLayers size={13} /> Skuggor
-        </label>
         <label style={inlineLabelStyle} title="Visa skuggsvep 06–20 vid valt datum">
           <input
             type="checkbox"
@@ -440,17 +399,6 @@ export function Toolbar({
           />
           Sol-svep
         </label>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontVariantNumeric: "tabular-nums",
-            fontSize: 11.5,
-            color: "var(--ink-2)",
-          }}
-          title="Solens position (altitud, azimut)"
-        >
-          {fmtNum(sunAltDeg, 1)}° / {fmtNum(sunAzDeg, 1)}°
-        </span>
       </div>
 
       {/* Plot boundary + Grid + North rotation */}
@@ -563,8 +511,8 @@ export function Toolbar({
         <span style={{ ...labelStyle, marginLeft: -2 }}>lon</span>
       </div>
 
-      {/* Measurements */}
-      <div style={sectionStyle}>
+      {/* Measurements — bäddhöjd (totals + kollision flyttade till StatusRow) */}
+      <div style={lastSectionStyle}>
         <IconRuler size={14} style={{ color: "var(--ink-2)" }} />
         <span style={labelStyle}>Bäddhöjd</span>
         <input
@@ -577,37 +525,6 @@ export function Toolbar({
           title="Bäddhöjd i mm (för jordvolymberäkning)"
         />
         <span style={{ ...labelStyle, marginLeft: -2 }}>mm</span>
-        <span
-          style={{
-            fontFamily: "var(--font-mono)",
-            fontVariantNumeric: "tabular-nums",
-            fontSize: 12.5,
-            color: "var(--ink-1)",
-            marginLeft: 6,
-          }}
-        >
-          Σ {fmtNum(totalAreaM2, 2)} m² · {fmtInt(totalSoilL)} L
-        </span>
-      </div>
-
-      {/* Overlap / touch status */}
-      <div style={lastSectionStyle}>
-        <span
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            color: overlapCount
-              ? "var(--state-danger)"
-              : touchCount
-                ? "var(--accent-sun)"
-                : "var(--state-success)",
-            fontSize: 12.5,
-          }}
-        >
-          {overlapCount || touchCount ? <IconTriangleAlert size={14} /> : <IconCheck size={14} />}
-          {formatCollisionStatus(overlapCount, touchCount)}
-        </span>
       </div>
     </div>
   );

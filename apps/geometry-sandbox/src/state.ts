@@ -134,13 +134,13 @@ export const nextId = (): string => `rect-${++_id}`;
 let _placementId = 0;
 export const nextPlacementId = (): string => `placement-${++_placementId}`;
 
-/** TimeSlider-fönster (06–20). Håll i synk med TimeSlider.tsx HOUR_MIN/MAX. */
+/** Tidsfönster (06–20). Håll i synk med TimeBar.tsx HOUR_MIN/MAX. */
 export const SUN_HOUR_MIN = 6;
 export const SUN_HOUR_MAX = 20;
 
 /**
  * Producerar en initial sandbox-state utifrån nuvarande tidpunkt.
- * Klockslaget clampas till TimeSlider-fönstret (06–20) så slidern startar
+ * Klockslaget clampas till tidsfönstret (06–20) så scrubbern startar
  * inom sin range; datumet bevaras alltid.
  */
 export function makeInitialState(now: Date = new Date()): SandboxState {

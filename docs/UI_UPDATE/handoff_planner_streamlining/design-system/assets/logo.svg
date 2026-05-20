@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 56" width="200" height="56" fill="none">
+  
+  <g transform="translate(8 12)">
+    
+    <rect x="0" y="0" width="32" height="32" rx="2" stroke="#1F2419" stroke-width="1.5" stroke-dasharray="4 3" fill="none"></rect>
+    
+    <rect x="4" y="4" width="14" height="9" rx="1" fill="#6E8C5A"></rect>
+    <rect x="4" y="16" width="9" height="12" rx="1" fill="#6E8C5A" opacity="0.65"></rect>
+    <rect x="16" y="16" width="12" height="12" rx="1" fill="#B5562E" opacity="0.85"></rect>
+  </g>
+  <text x="50" y="36" font-family="Instrument Serif, Georgia, serif" font-size="26" fill="#1F2419" letter-spacing="-0.5">PlotPlaner</text>
+</svg>
