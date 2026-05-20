@@ -133,6 +133,12 @@ export const IconEyeOff = (p: IconProps) => (
   </Svg>
 );
 
+export const IconCursor = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 3l7.5 17 2.3-6.7 6.7-2.3z" />
+  </Svg>
+);
+
 export const IconCopy = (p: IconProps) => (
   <Svg {...p}>
     <rect x="9" y="9" width="11" height="11" rx="2" />

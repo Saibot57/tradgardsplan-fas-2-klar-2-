@@ -41,9 +41,11 @@ export interface SandboxState {
   /**
    * Aktivt verktyg. "select" är default (klicka/dra för att markera+flytta).
    * "create" → klick+dra på tom yta skapar ny rect med dimensioner enligt drag.
+   * "plot"   → klick+dra ritar/ritar om tomtgränsen (boundaryRect).
+   * "measure"→ två-klicks linjal (rent canvas-lokalt, ingen reducer-state).
    * Session-state, ej i undo-stacken.
    */
-  tool: "select" | "create";
+  tool: "select" | "create" | "plot" | "measure";
   /** Vilken kind nya rect:ar får i drag-to-create-läget. Session-state. */
   createKind: ObjectKind;
   /** Aktiv toppflik. Session-state, ej del av scene-snapshot. */
@@ -84,7 +86,7 @@ export type Action =
   | { type: "setSnapToGrid"; enabled: boolean }
   | { type: "setGridStep"; mm: number }
   | { type: "setShowAllMeasurements"; enabled: boolean }
-  | { type: "setTool"; tool: "select" | "create" }
+  | { type: "setTool"; tool: "select" | "create" | "plot" | "measure" }
   | { type: "setCreateKind"; kind: ObjectKind }
   | { type: "loadScene"; scene: SceneV6 }
   | { type: "newScene" }

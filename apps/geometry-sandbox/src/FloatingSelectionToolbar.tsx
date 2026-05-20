@@ -11,7 +11,7 @@ import type { Dispatch } from "react";
 import { getKind, type Rect } from "@kolonitradgard/spatial-core";
 import type { Action } from "./state.js";
 import type { HistoryAction } from "./history.js";
-import { KIND_LABELS } from "./Toolbar.js";
+import { KIND_LABELS } from "./addObject.js";
 import { fmtNum } from "./format.js";
 import { IconCopy, IconRotateCCW, IconRotateCW, IconTrash, IconWall } from "./icons.js";
 

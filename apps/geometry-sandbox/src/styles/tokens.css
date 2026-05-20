@@ -307,6 +307,34 @@ button[data-pp-btn][data-danger-hover="true"]:hover:not(:disabled) {
   color: var(--danger-700);
 }
 
+button[data-pp-rail] {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-2);
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+button[data-pp-rail]:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--ink-1);
+}
+button[data-pp-rail][data-active="true"] {
+  background: var(--ink-1);
+  color: var(--bg-surface);
+}
+button[data-pp-rail]:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 input[data-pp-input],
 select[data-pp-input] {
   font-family: var(--font-sans);

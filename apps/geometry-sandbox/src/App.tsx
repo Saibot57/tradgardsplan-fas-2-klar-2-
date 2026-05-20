@@ -2,14 +2,20 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { AppHeader } from "./AppHeader.js";
 import { Canvas } from "./Canvas.js";
 import { Toolbar } from "./Toolbar.js";
+import { ToolRail } from "./ToolRail.js";
 import { TimeBar } from "./TimeBar.js";
 import { StatusRow } from "./StatusRow.js";
 import { SidePanel } from "./SidePanel.js";
+import { AddRectPopover, KIND_DEFAULTS } from "./addObject.js";
+import { SceneMenu } from "./SceneMenu.js";
+import type { ObjectKind, Rect, SceneV6 } from "@kolonitradgard/spatial-core";
 import { PlantCatalog } from "./plant-catalog/PlantCatalog.js";
 import { loadDefaultPlantCatalog } from "./plants/PlantRepository.js";
 import {
   AUTO_COMMIT_ACTIONS,
   makeInitialState,
+  MIN_RECT_DIMENSION_MM,
+  nextId,
   reducer,
   type Action,
   type ActiveTab,
@@ -22,6 +28,7 @@ import {
   rectAreaM2,
   rectEdgeTouch,
   rectOverlap,
+  serializeScene,
   sunPositionAt,
 } from "@kolonitradgard/spatial-core";
 import {
@@ -31,8 +38,21 @@ import {
   type HistoryAction,
   type HistoryState,
 } from "./history.js";
-import { localStorageAdapter } from "./persistence.js";
-import { bootstrapFromAdapter, useAutoSave } from "./useAutoSave.js";
+import type { ScenePersistence } from "./persistence.js";
+import { useAutoSave } from "./useAutoSave.js";
+import { saveScene, loadSceneFromFile, exportCanvasAsPng } from "./io.js";
+import {
+  deleteSceneData,
+  findMeta,
+  loadScenesIndex,
+  metaFromScene,
+  nextSceneId,
+  readSceneData,
+  saveScenesIndex,
+  uniqueSceneName,
+  writeSceneData,
+  type ScenesIndex,
+} from "./scenes.js";
 
 const wrappedReducer = withHistory<SandboxState, Action>(reducer, AUTO_COMMIT_ACTIONS);
 
@@ -56,9 +76,6 @@ function readInitialTheme(): "light" | "dark" {
   return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
 }
 
-// Singleton-adapter — instans-stabil mellan renders.
-const persistenceAdapter = localStorageAdapter();
-
 // Plant-katalogen laddas en gång vid modulen — den är statiskt bundlad och
 // rena pure data. PlantRepository cachar internt, men ge bundle:n ett tidigt
 // validate-pass så ev. JSON-fel kraschar nära mount istället för vid val.
@@ -72,24 +89,189 @@ export function App() {
   const [bootstrapped, setBootstrapped] = useState(false);
   const didBootstrap = useRef(false);
 
-  // Bootstrap från persistens vid mount. Default-state visas tills load är klar.
+  // Namngivna scener (lagret ovanför reducern). currentSceneIdRef läses av
+  // autosave-adaptern; scenesIndexRef speglar menyns lista utan re-render.
+  const [scenesIndex, setScenesIndex] = useState<ScenesIndex>({ scenes: [], currentId: null });
+  const [currentSceneId, setCurrentSceneId] = useState<string | null>(null);
+  const currentSceneIdRef = useRef<string | null>(null);
+  const scenesIndexRef = useRef<ScenesIndex>(scenesIndex);
+  scenesIndexRef.current = scenesIndex;
+
+  // stateRef behövs av handlers (duplicera) — sätts längre ned, men deklareras
+  // här så adaptern kan refereras innan render-ordningen.
+  const stateRefForScenes = useRef(state);
+  stateRefForScenes.current = state;
+
+  // Autosave-adapter som riktar mot aktuell scen-id och uppdaterar dess meta.
+  const adapter = useMemo<ScenePersistence>(
+    () => ({
+      label: "scenes",
+      async save(scene: SceneV6) {
+        const id = currentSceneIdRef.current;
+        if (!id) return;
+        writeSceneData(id, scene);
+        const idx = scenesIndexRef.current;
+        const updated: ScenesIndex = {
+          ...idx,
+          scenes: idx.scenes.map((m) =>
+            m.id === id ? { ...m, lastSaved: Date.now(), ...metaFromScene(scene) } : m,
+          ),
+        };
+        scenesIndexRef.current = updated;
+        saveScenesIndex(updated);
+      },
+      async load() {
+        const id = currentSceneIdRef.current;
+        return id ? readSceneData(id) : null;
+      },
+      async clear() {
+        const id = currentSceneIdRef.current;
+        if (id) deleteSceneData(id);
+      },
+    }),
+    [],
+  );
+
+  // Bootstrap: ladda scen-indexet (migrerar legacy) och aktiv scen vid mount.
   useEffect(() => {
     if (didBootstrap.current) return;
     didBootstrap.current = true;
-    bootstrapFromAdapter(persistenceAdapter)
-      .then((scene) => {
-        if (scene) {
-          dispatch({ type: "loadScene", scene });
-        }
-      })
-      .finally(() => setBootstrapped(true));
+    let idx = loadScenesIndex();
+    if (idx.currentId == null && idx.scenes.length > 0) {
+      idx = { ...idx, currentId: idx.scenes[0]!.id };
+      saveScenesIndex(idx);
+    }
+    if (idx.scenes.length === 0) {
+      // Helt ny användare — skapa en default-scen, behåll demo-state (present).
+      const id = nextSceneId();
+      idx = {
+        scenes: [
+          { id, name: "Min trädgård", lastSaved: Date.now(), plotWidthMm: null, plotHeightMm: null, bedCount: 0 },
+        ],
+        currentId: id,
+      };
+      saveScenesIndex(idx);
+    } else if (idx.currentId) {
+      const scene = readSceneData(idx.currentId);
+      if (scene) dispatch({ type: "loadScene", scene });
+    }
+    currentSceneIdRef.current = idx.currentId;
+    scenesIndexRef.current = idx;
+    setScenesIndex(idx);
+    setCurrentSceneId(idx.currentId);
+    setBootstrapped(true);
   }, []);
 
-  const { status: autoSaveStatus, resetBaseline } = useAutoSave(
-    state,
-    persistenceAdapter,
-    bootstrapped,
+  const { status: autoSaveStatus, resetBaseline } = useAutoSave(state, adapter, bootstrapped);
+
+  const applyIndex = useCallback((idx: ScenesIndex) => {
+    saveScenesIndex(idx);
+    scenesIndexRef.current = idx;
+    setScenesIndex(idx);
+    currentSceneIdRef.current = idx.currentId;
+    setCurrentSceneId(idx.currentId);
+  }, []);
+
+  const refreshScenes = useCallback(() => {
+    const idx = loadScenesIndex();
+    scenesIndexRef.current = idx;
+    setScenesIndex(idx);
+  }, []);
+
+  const switchScene = useCallback(
+    (id: string) => {
+      if (id === currentSceneIdRef.current) return;
+      const scene = readSceneData(id);
+      applyIndex({ ...scenesIndexRef.current, currentId: id });
+      dispatch({ type: "commitHistory" });
+      if (scene) dispatch({ type: "loadScene", scene });
+      else dispatch({ type: "newScene" });
+      resetBaseline();
+    },
+    [applyIndex, resetBaseline],
   );
+
+  const createScene = useCallback(() => {
+    const idx0 = scenesIndexRef.current;
+    const id = nextSceneId();
+    const name = uniqueSceneName(idx0, "Ny trädgård");
+    applyIndex({
+      scenes: [
+        ...idx0.scenes,
+        { id, name, lastSaved: Date.now(), plotWidthMm: null, plotHeightMm: null, bedCount: 0 },
+      ],
+      currentId: id,
+    });
+    dispatch({ type: "commitHistory" });
+    dispatch({ type: "newScene" });
+    resetBaseline();
+  }, [applyIndex, resetBaseline]);
+
+  const renameScene = useCallback(
+    (name: string) => {
+      const id = currentSceneIdRef.current;
+      if (!id) return;
+      const idx0 = scenesIndexRef.current;
+      applyIndex({
+        ...idx0,
+        scenes: idx0.scenes.map((m) => (m.id === id ? { ...m, name } : m)),
+      });
+    },
+    [applyIndex],
+  );
+
+  const duplicateScene = useCallback(() => {
+    const idx0 = scenesIndexRef.current;
+    const srcId = currentSceneIdRef.current;
+    const srcMeta = findMeta(idx0, srcId);
+    const s = stateRefForScenes.current;
+    const scene = serializeScene({
+      plot: { northRotationDeg: s.plot.northRotationDeg, location: s.plot.location },
+      boundary: s.plot.boundaryRect,
+      rectangles: s.rectangles,
+      plannedPlantIds: s.plannedPlantIds,
+    });
+    const id = nextSceneId();
+    const name = uniqueSceneName(idx0, `${srcMeta?.name ?? "Scen"} (kopia)`);
+    writeSceneData(id, scene);
+    applyIndex({
+      scenes: [
+        ...idx0.scenes,
+        { id, name, lastSaved: Date.now(), ...metaFromScene(scene) },
+      ],
+      currentId: id,
+    });
+    resetBaseline();
+  }, [applyIndex, resetBaseline]);
+
+  const deleteScene = useCallback(
+    (id: string) => {
+      deleteSceneData(id);
+      const remaining = scenesIndexRef.current.scenes.filter((m) => m.id !== id);
+      if (remaining.length === 0) {
+        const newId = nextSceneId();
+        applyIndex({
+          scenes: [
+            { id: newId, name: "Min trädgård", lastSaved: Date.now(), plotWidthMm: null, plotHeightMm: null, bedCount: 0 },
+          ],
+          currentId: newId,
+        });
+        dispatch({ type: "commitHistory" });
+        dispatch({ type: "newScene" });
+      } else {
+        const nextId2 = remaining[0]!.id;
+        applyIndex({ scenes: remaining, currentId: nextId2 });
+        const scene = readSceneData(nextId2);
+        dispatch({ type: "commitHistory" });
+        if (scene) dispatch({ type: "loadScene", scene });
+        else dispatch({ type: "newScene" });
+      }
+      resetBaseline();
+    },
+    [applyIndex, resetBaseline],
+  );
+
+  const currentSceneName = findMeta(scenesIndex, currentSceneId)?.name ?? "Min trädgård";
 
   const onToggleTheme = useCallback(() => {
     setTheme((prev) => {
@@ -108,6 +290,41 @@ export function App() {
   const stateRef = useRef(state);
   stateRef.current = state;
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Lägg-till-dialog (delas av rail-knappen B och B-tangenten) + norr-dialen (N).
+  const [addOpen, setAddOpen] = useState(false);
+  const [addKind, setAddKind] = useState<ObjectKind>("bed");
+  const [addWidth, setAddWidth] = useState(KIND_DEFAULTS.bed.width);
+  const [addHeight, setAddHeight] = useState(KIND_DEFAULTS.bed.height);
+  const [addWallHeight, setAddWallHeight] = useState(KIND_DEFAULTS.bed.wallHeight);
+  const [northOpen, setNorthOpen] = useState(false);
+
+  const onPickAddKind = useCallback((k: ObjectKind) => {
+    setAddKind(k);
+    setAddWidth(KIND_DEFAULTS[k].width);
+    setAddHeight(KIND_DEFAULTS[k].height);
+    setAddWallHeight(KIND_DEFAULTS[k].wallHeight);
+  }, []);
+
+  const commitAddRect = useCallback(() => {
+    const s = stateRef.current;
+    const w = Math.max(MIN_RECT_DIMENSION_MM, Math.round(addWidth));
+    const h = Math.max(MIN_RECT_DIMENSION_MM, Math.round(addHeight));
+    const wh = Math.max(0, Math.round(addWallHeight));
+    const offset = (s.rectangles.length % 8) * 600;
+    const rect: Rect = {
+      id: nextId(),
+      cx: 5000 + offset,
+      cy: 5000 + offset,
+      width: w,
+      height: h,
+      rotationDeg: 0,
+      wallHeight: wh,
+    };
+    if (addKind !== "bed") rect.kind = addKind;
+    dispatch({ type: "addRect", rect });
+    setAddOpen(false);
+  }, [addKind, addWidth, addHeight, addWallHeight]);
 
   // Keyboard shortcuts.
   useEffect(() => {
@@ -148,7 +365,37 @@ export function App() {
 
       if (e.key === "Escape") {
         if (showShortcuts) setShowShortcuts(false);
+        else if (addOpen) setAddOpen(false);
+        else if (northOpen) setNorthOpen(false);
+        else if (s.tool !== "select") dispatch({ type: "setTool", tool: "select" });
         else if (s.selectedIds.length > 0) dispatch({ type: "select", id: null });
+        return;
+      }
+
+      // Verktygsval (rail). V/B/P/M/N — guardas redan mot editbara mål ovan.
+      if (e.key.toLowerCase() === "v") {
+        e.preventDefault();
+        dispatch({ type: "setTool", tool: "select" });
+        return;
+      }
+      if (e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setAddOpen((v) => !v);
+        return;
+      }
+      if (e.key.toLowerCase() === "p") {
+        e.preventDefault();
+        dispatch({ type: "setTool", tool: "plot" });
+        return;
+      }
+      if (e.key.toLowerCase() === "m") {
+        e.preventDefault();
+        dispatch({ type: "setTool", tool: "measure" });
+        return;
+      }
+      if (e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        setNorthOpen((v) => !v);
         return;
       }
 
@@ -224,7 +471,7 @@ export function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showShortcuts]);
+  }, [showShortcuts, addOpen, northOpen]);
 
   const zoomBy = useCallback((factor: number) => {
     const s = stateRef.current;
@@ -326,6 +573,22 @@ export function App() {
         onTabChange={onTabChange}
         theme={theme}
         onToggleTheme={onToggleTheme}
+        sceneMenu={
+          <SceneMenu
+            currentName={currentSceneName}
+            scenes={scenesIndex.scenes}
+            currentId={currentSceneId}
+            onOpen={refreshScenes}
+            onSwitch={switchScene}
+            onCreate={createScene}
+            onRename={renameScene}
+            onDuplicate={duplicateScene}
+            onDelete={deleteScene}
+            onExportJson={() => saveScene(state)}
+            onImportJson={() => loadSceneFromFile(dispatch, resetBaseline)}
+            onExportPng={() => exportCanvasAsPng()}
+          />
+        }
       />
       {state.activeTab === "planera" ? (
         <>
@@ -338,9 +601,6 @@ export function App() {
             onRedo={onRedo}
             canUndo={canUndo(historyState)}
             canRedo={canRedo(historyState)}
-            autoSaveStatus={autoSaveStatus}
-            onResetAutoSaveBaseline={resetBaseline}
-            adapter={persistenceAdapter}
           />
           <div
             role="tabpanel"
@@ -349,6 +609,17 @@ export function App() {
             style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
           >
             <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+              <ToolRail
+                tool={state.tool}
+                snapToGrid={state.snapToGrid}
+                northRotationDeg={state.plot.northRotationDeg}
+                hasBoundary={state.plot.boundaryRect != null}
+                addActive={addOpen}
+                northOpen={northOpen}
+                onNorthOpenChange={setNorthOpen}
+                onAdd={() => setAddOpen((v) => !v)}
+                dispatch={dispatch}
+              />
               <Canvas
                 state={state}
                 dispatch={dispatch}
@@ -356,6 +627,7 @@ export function App() {
                 overlappingIds={overlappingIds}
                 touchingIds={touchingIds}
                 theme={theme}
+                onRequestAddBed={() => setAddOpen(true)}
               />
               <SidePanel
                 state={state}
@@ -406,12 +678,49 @@ export function App() {
           }}
         />
       )}
+      {addOpen && (
+        <AddRectPopover
+          kind={addKind}
+          onKind={onPickAddKind}
+          width={addWidth}
+          height={addHeight}
+          wallHeight={addWallHeight}
+          onWidth={setAddWidth}
+          onHeight={setAddHeight}
+          onWallHeight={setAddWallHeight}
+          onCancel={() => setAddOpen(false)}
+          onConfirm={commitAddRect}
+          onStartDrawing={() => {
+            dispatch({ type: "setCreateKind", kind: addKind });
+            dispatch({ type: "setTool", tool: "create" });
+            setAddOpen(false);
+          }}
+        />
+      )}
       {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>
   );
 }
 
 const SHORTCUT_GROUPS: Array<{ title: string; rows: Array<[string, string]> }> = [
+  {
+    title: "Verktyg",
+    rows: [
+      ["V", "Markera"],
+      ["B", "Lägg till objekt"],
+      ["P", "Rita tomtgräns"],
+      ["M", "Mät avstånd"],
+      ["G", "Snap till rutnät"],
+      ["N", "Norr-rotation"],
+    ],
+  },
+  {
+    title: "Tid",
+    rows: [
+      ["[ / ]", "Tid −15 / +15 min"],
+      ["S", "Visa / dölj skuggor"],
+    ],
+  },
   {
     title: "Historik",
     rows: [

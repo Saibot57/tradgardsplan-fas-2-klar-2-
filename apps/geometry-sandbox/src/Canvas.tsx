@@ -22,7 +22,7 @@ import {
 import { computeGhostRect, type GhostRectGeometry } from "./ghostRect.js";
 import { MIN_RECT_DIMENSION_MM, nextId } from "./state.js";
 import type { ObjectKind } from "@kolonitradgard/spatial-core";
-import { KIND_DEFAULTS } from "./Toolbar.js";
+import { KIND_DEFAULTS } from "./addObject.js";
 import {
   computeResizedRect,
   computeRotation,
@@ -36,6 +36,7 @@ import {
   FloatingSelectionToolbar,
   type FloatingPlacement,
 } from "./FloatingSelectionToolbar.js";
+import { EmptyState } from "./EmptyState.js";
 
 interface Props {
   state: SandboxState;
@@ -44,6 +45,7 @@ interface Props {
   overlappingIds: Set<string>;
   touchingIds: Set<string>;
   theme: "light" | "dark";
+  onRequestAddBed: () => void;
 }
 
 /** Hit-test */
@@ -231,9 +233,18 @@ type DragMode =
   | { kind: "pan" }
   | { kind: "resize"; handle: ResizeHandle; oldRect: Rect; rectId: string }
   | { kind: "rotate"; oldRect: Rect; rectId: string }
-  | { kind: "creating"; startWorld: Point; objectKind: ObjectKind };
+  | { kind: "creating"; startWorld: Point; objectKind: ObjectKind }
+  | { kind: "plot-create"; startWorld: Point };
 
-export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, theme }: Props) {
+export function Canvas({
+  state,
+  dispatch,
+  sun,
+  overlappingIds,
+  touchingIds,
+  theme,
+  onRequestAddBed,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -249,8 +260,29 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
    */
   const [ghostRect, setGhostRect] = useState<GhostRectGeometry | null>(null);
 
+  /**
+   * Mät-verktyget (två-klicks linjal). Rent canvas-lokalt — ingen reducer-state,
+   * ingen undo, ingen persistens. `from` sätts på första klick, `to` på andra;
+   * tredje klicket börjar om. `hover` är live-endpunkten medan `to` är null.
+   */
+  const [measureFrom, setMeasureFrom] = useState<Point | null>(null);
+  const [measureTo, setMeasureTo] = useState<Point | null>(null);
+  const [measureHover, setMeasureHover] = useState<Point | null>(null);
+
   /** Space-tangenten håller pan-läge oavsett tool. */
   const spaceHeldRef = useRef<boolean>(false);
+
+  // Rensa verktygs-lokalt state när verktyget byts (via rail, tangent, eller Esc).
+  useEffect(() => {
+    if (state.tool !== "measure") {
+      setMeasureFrom(null);
+      setMeasureTo(null);
+      setMeasureHover(null);
+    }
+    if (state.tool !== "create" && state.tool !== "plot") {
+      setGhostRect(null);
+    }
+  }, [state.tool]);
 
   // Tangentbordshanterare för Space (pan-overlay) och Escape (avbryt create)
   useEffect(() => {
@@ -492,11 +524,57 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
       );
     }
 
+    // Mät-linjal (två-klicks). Heldragen när färdig, streckad medan andra
+    // punkten ännu inte satts.
+    if (state.tool === "measure" && measureFrom) {
+      const end = measureTo ?? measureHover ?? measureFrom;
+      const sa = worldToScreen(measureFrom, state.viewport);
+      const sb = worldToScreen(end, state.viewport);
+      ctx.save();
+      ctx.strokeStyle = palette.accentSun;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash(measureTo ? [] : [5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(sa.x, sa.y);
+      ctx.lineTo(sb.x, sb.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      for (const p of [sa, sb]) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = palette.accentSun;
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = palette.handleStroke;
+        ctx.stroke();
+      }
+      const dist = Math.hypot(end.x - measureFrom.x, end.y - measureFrom.y);
+      const label = `${Math.round(dist)} mm`;
+      const midX = (sa.x + sb.x) / 2;
+      const midY = (sa.y + sb.y) / 2;
+      ctx.font = "600 12px var(--font-mono, ui-monospace, Menlo, monospace)";
+      const tw = ctx.measureText(label).width;
+      const boxW = tw + 10;
+      const boxH = 20;
+      ctx.fillStyle = palette.bgCanvas;
+      ctx.strokeStyle = palette.line1;
+      ctx.lineWidth = 1;
+      ctx.fillRect(midX - boxW / 2, midY - boxH / 2 - 12, boxW, boxH);
+      ctx.strokeRect(midX - boxW / 2, midY - boxH / 2 - 12, boxW, boxH);
+      ctx.fillStyle = palette.measurementText;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, midX, midY - 12);
+      ctx.textAlign = "start";
+      ctx.textBaseline = "alphabetic";
+      ctx.restore();
+    }
+
     // Handles bara för primary-selected (resize/rotate på flera samtidigt är inte definierat)
     if (primaryRect) {
       drawHandles(ctx, primaryRect, state.viewport, palette);
     }
-  }, [state, sun, overlappingIds, touchingIds, theme, ghostRect]);
+  }, [state, sun, overlappingIds, touchingIds, theme, ghostRect, measureFrom, measureTo, measureHover]);
 
   // Pointer interactions
   const onPointerDown = (e: React.PointerEvent) => {
@@ -527,6 +605,32 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
       };
       setGhostRect({ cx: worldP.x, cy: worldP.y, width: 0, height: 0 });
       (e.target as Element).setPointerCapture(e.pointerId);
+      return;
+    }
+
+    // 0c. Rita tomtgräns: drag ritar boundaryRect.
+    if (state.tool === "plot") {
+      dragRef.current = {
+        lastX: e.clientX,
+        lastY: e.clientY,
+        mode: { kind: "plot-create", startWorld: worldP },
+      };
+      setGhostRect({ cx: worldP.x, cy: worldP.y, width: 0, height: 0 });
+      (e.target as Element).setPointerCapture(e.pointerId);
+      return;
+    }
+
+    // 0d. Mät-linjal: klick-baserad (ingen drag). Första klick → from,
+    //     andra → to, tredje → börja om.
+    if (state.tool === "measure") {
+      const snapped = state.snapToGrid ? snapToGrid(worldP, state.gridStepMm) : worldP;
+      if (measureFrom == null || measureTo != null) {
+        setMeasureFrom(snapped);
+        setMeasureTo(null);
+        setMeasureHover(snapped);
+      } else {
+        setMeasureTo(snapped);
+      }
       return;
     }
 
@@ -598,6 +702,16 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
+    // Mät-verktygets live-endpunkt (ingen drag pågår).
+    if (state.tool === "measure" && measureFrom != null && measureTo == null) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const cr = canvas.getBoundingClientRect();
+        const w = screenToWorld({ x: e.clientX - cr.left, y: e.clientY - cr.top }, state.viewport);
+        setMeasureHover(state.snapToGrid ? snapToGrid(w, state.gridStepMm) : w);
+      }
+    }
+
     const drag = dragRef.current;
     if (!drag) return;
 
@@ -634,7 +748,7 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
       return;
     }
 
-    if (mode.kind === "creating") {
+    if (mode.kind === "creating" || mode.kind === "plot-create") {
       const pointerWorld = screenToWorld(screenP, state.viewport);
       const next = computeGhostRect(mode.startWorld, pointerWorld, {
         enabled: state.snapToGrid,
@@ -681,6 +795,28 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
 
   const onPointerUp = () => {
     const drag = dragRef.current;
+    if (drag?.mode.kind === "plot-create" && ghostRect) {
+      const w = Math.round(ghostRect.width);
+      const h = Math.round(ghostRect.height);
+      if (w >= MIN_RECT_DIMENSION_MM && h >= MIN_RECT_DIMENSION_MM) {
+        dispatch({
+          type: "setPlotBoundary",
+          rect: {
+            id: "plot-boundary",
+            cx: Math.round(ghostRect.cx),
+            cy: Math.round(ghostRect.cy),
+            width: w,
+            height: h,
+            rotationDeg: 0,
+            wallHeight: 0,
+          },
+        });
+      }
+      setGhostRect(null);
+      dispatch({ type: "setTool", tool: "select" });
+      dragRef.current = null;
+      return;
+    }
     if (drag?.mode.kind === "creating" && ghostRect) {
       const w = Math.round(ghostRect.width);
       const h = Math.round(ghostRect.height);
@@ -770,6 +906,43 @@ export function Canvas({ state, dispatch, sun, overlappingIds, touchingIds, them
           placement={floatingPlacement}
           dispatch={dispatch}
         />
+      )}
+      {state.tool === "select" &&
+        state.plot.boundaryRect == null &&
+        state.rectangles.length === 0 && (
+          <EmptyState stage="no-plot" dispatch={dispatch} onRequestAddBed={onRequestAddBed} />
+        )}
+      {state.tool === "select" &&
+        state.plot.boundaryRect != null &&
+        state.rectangles.length === 0 && (
+          <EmptyState stage="no-beds" dispatch={dispatch} onRequestAddBed={onRequestAddBed} />
+        )}
+      {state.tool !== "select" && (
+        <div
+          style={{
+            position: "absolute",
+            top: 12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 15,
+            padding: "5px 12px",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--line-1)",
+            borderRadius: "var(--radius-pill)",
+            boxShadow: "var(--shadow-1)",
+            fontFamily: "var(--font-sans)",
+            fontSize: 12,
+            color: "var(--ink-1)",
+            whiteSpace: "nowrap",
+            pointerEvents: "none",
+          }}
+        >
+          {state.tool === "create"
+            ? "Rita objekt — dra på ytan · Esc avbryter"
+            : state.tool === "plot"
+              ? "Rita tomtgräns — dra på ytan · Esc avbryter"
+              : "Mät — klicka två punkter · Esc rensar"}
+        </div>
       )}
     </div>
   );

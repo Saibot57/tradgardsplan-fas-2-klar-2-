@@ -4,6 +4,7 @@
  * shared/Tabs.tsx (role=tablist + role=tab + aria-selected).
  */
 
+import type { ReactNode } from "react";
 import { IconMoon, IconSun } from "./icons.js";
 import { Tab, TabBar } from "./shared/Tabs.js";
 import type { ActiveTab } from "./state.js";
@@ -13,6 +14,8 @@ interface AppHeaderProps {
   onTabChange: (tab: ActiveTab) => void;
   theme: "light" | "dark";
   onToggleTheme: () => void;
+  /** Scen-meny (namngivna scener) — visas i topbaren bredvid varumärket. */
+  sceneMenu?: ReactNode;
 }
 
 const headerStyle: React.CSSProperties = {
@@ -41,13 +44,20 @@ const brandLabelStyle: React.CSSProperties = {
   color: "var(--ink-1)",
 };
 
-export function AppHeader({ activeTab, onTabChange, theme, onToggleTheme }: AppHeaderProps) {
+export function AppHeader({
+  activeTab,
+  onTabChange,
+  theme,
+  onToggleTheme,
+  sceneMenu,
+}: AppHeaderProps) {
   return (
     <header style={headerStyle}>
       <div style={brandStyle}>
         <img src="/logo-mark.svg" alt="" style={{ height: 20, display: "block" }} />
         <strong style={brandLabelStyle}>PlotPlaner</strong>
       </div>
+      {sceneMenu}
       <TabBar ariaLabel="Huvudvy">
         <Tab
           id="tab-planera"

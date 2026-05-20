@@ -88,6 +88,14 @@ function containmentLabel(c: Containment): { text: string; color: string } {
   }
 }
 
+/** Klartext-tolkning av aggregerade soltimmar vid midsommar. */
+function sunHoursGloss(h: number): string {
+  if (h >= 6) return "Soligt — bra för tomat, paprika och squash.";
+  if (h >= 4) return "Halvsol — räcker för sallad, bönor och rotfrukter.";
+  if (h >= 2) return "Halvskugga — bladgrönt och örter trivs.";
+  return "Skuggigt — välj skuggtåliga växter.";
+}
+
 interface Props {
   state: SandboxState;
   bedDepth: number;
@@ -158,6 +166,44 @@ function BoundaryNumberRow({
   );
 }
 
+/**
+ * Liten redigerbar siffer-input. `onBeginEdit` (commitHistory på focus) gör
+ * att hela redigeringen blir ETT undo-steg — samma mönster som drag på canvas
+ * (pointerDown → commitHistory, sedan mutationer). `onCommit` muterar present.
+ */
+function EditNum({
+  value,
+  step,
+  min,
+  width = 70,
+  onBeginEdit,
+  onCommit,
+}: {
+  value: number;
+  step: number;
+  min?: number;
+  width?: number;
+  onBeginEdit?: () => void;
+  onCommit: (next: number) => void;
+}) {
+  return (
+    <input
+      type="number"
+      value={value}
+      step={step}
+      {...(min !== undefined ? { min } : {})}
+      onFocus={onBeginEdit}
+      onChange={(e) => {
+        const n = Number(e.target.value);
+        if (Number.isFinite(n)) onCommit(n);
+      }}
+      data-pp-input
+      data-mono="true"
+      style={{ width, textAlign: "right", fontSize: 13 }}
+    />
+  );
+}
+
 export function SidePanel({
   state,
   bedDepth,
@@ -172,6 +218,9 @@ export function SidePanel({
   );
   const selectedKind = selected ? getKind(selected) : null;
   const multiCount = state.selectedIds.length;
+
+  // Snapshot:a pre-edit-state vid focus så hela inmatningen blir ett undo-steg.
+  const beginEdit = () => dispatch({ type: "commitHistory" });
 
   const sunHoursValue = useMemo(() => {
     if (!selected) return null;
@@ -233,6 +282,28 @@ export function SidePanel({
     return rectContainedIn(selected, plot);
   }, [selected, plot]);
 
+  // Scen-lista (visas bara när inget är valt). Per-bädd-soltimmar är dyrt
+  // (timsampling), så vi beräknar inget när en markering finns.
+  const sceneItems = useMemo(() => {
+    if (selected) return [];
+    return state.rectangles.map((r) => {
+      const kind = getKind(r);
+      let sun: number | null = null;
+      if (kind === "bed" || kind === "rabatt") {
+        const others = state.rectangles.filter((x) => x.id !== r.id);
+        sun = bedSunHours(r, others, REFERENCE_DATE, state.plot.location, state.plot.northRotationDeg);
+      }
+      return {
+        id: r.id,
+        kind,
+        label: r.label,
+        areaM2: rectAreaM2(r),
+        color: r.color ?? defaultColorForKind(kind),
+        sun,
+      };
+    });
+  }, [selected, state.rectangles, state.plot.location, state.plot.northRotationDeg]);
+
   return (
     <aside style={panelStyle}>
       <div>
@@ -256,6 +327,76 @@ export function SidePanel({
               : "Klicka på ett objekt i ritningen för att se detaljer."}
         </div>
       </div>
+
+      {!selected && (
+        <section>
+          <div style={sectionTitleStyle}>Scen ({state.rectangles.length})</div>
+          {state.rectangles.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.5 }}>
+              Inga objekt ännu. Rita en tomt och lägg till bäddar.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {sceneItems.map((b) => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => dispatch({ type: "select", id: b.id })}
+                  title="Markera objektet"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    width: "100%",
+                    padding: "7px 0",
+                    background: "transparent",
+                    border: 0,
+                    borderBottom: "1px solid var(--line-1)",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    fontFamily: "var(--font-sans)",
+                    color: "var(--ink-1)",
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 2,
+                      background: b.color,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      fontSize: 13,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {b.label || KIND_LABEL[b.kind]}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 11.5,
+                      color: "var(--ink-2)",
+                      fontVariantNumeric: "tabular-nums",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {b.sun != null ? `${fmtNum(b.sun, 1)} h` : `${fmtNum(b.areaM2, 2)} m²`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {selected && (
         <section>
@@ -374,34 +515,114 @@ export function SidePanel({
               )
             }
           />
-          <Row
-            label="Mått"
-            value={
-              <>
-                {fmtInt(selected.width)} × {fmtInt(selected.height)}{" "}
-                <span style={unitStyle}>mm</span>
-              </>
-            }
-          />
-          <Row
-            label="Position"
-            value={<>({fmtInt(selected.cx)}, {fmtInt(selected.cy)})</>}
-          />
-          <Row label="Rotation" value={<>{fmtNum(selected.rotationDeg, 1)}°</>} />
-          {selectedKind && (selectedKind === "building" || selectedKind === "hedge") && (
-            <Row
-              label="Vägghöjd"
-              value={
-                selected.wallHeight > 0 ? (
-                  <>
-                    {fmtInt(selected.wallHeight)} <span style={unitStyle}>mm</span>
-                  </>
-                ) : (
-                  "—"
-                )
-              }
-            />
-          )}
+          <div style={rowStyle}>
+            <div style={rowLabelStyle}>Mått</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <EditNum
+                value={selected.width}
+                step={100}
+                min={MIN_RECT_DIMENSION_MM}
+                width={62}
+                onBeginEdit={beginEdit}
+                onCommit={(w) =>
+                  dispatch({
+                    type: "resizeRect",
+                    id: selected.id,
+                    cx: selected.cx,
+                    cy: selected.cy,
+                    width: w,
+                    height: selected.height,
+                  })
+                }
+              />
+              <span style={{ ...unitStyle, fontSize: 12.5 }}>×</span>
+              <EditNum
+                value={selected.height}
+                step={100}
+                min={MIN_RECT_DIMENSION_MM}
+                width={62}
+                onBeginEdit={beginEdit}
+                onCommit={(h) =>
+                  dispatch({
+                    type: "resizeRect",
+                    id: selected.id,
+                    cx: selected.cx,
+                    cy: selected.cy,
+                    width: selected.width,
+                    height: h,
+                  })
+                }
+              />
+              <span style={{ ...unitStyle, fontSize: 12.5 }}>mm</span>
+            </div>
+          </div>
+          <div style={rowStyle}>
+            <div style={rowLabelStyle}>Position</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <EditNum
+                value={selected.cx}
+                step={100}
+                width={62}
+                onBeginEdit={beginEdit}
+                onCommit={(cx) =>
+                  dispatch({
+                    type: "resizeRect",
+                    id: selected.id,
+                    cx,
+                    cy: selected.cy,
+                    width: selected.width,
+                    height: selected.height,
+                  })
+                }
+              />
+              <span style={{ ...unitStyle, fontSize: 12.5 }}>,</span>
+              <EditNum
+                value={selected.cy}
+                step={100}
+                width={62}
+                onBeginEdit={beginEdit}
+                onCommit={(cy) =>
+                  dispatch({
+                    type: "resizeRect",
+                    id: selected.id,
+                    cx: selected.cx,
+                    cy,
+                    width: selected.width,
+                    height: selected.height,
+                  })
+                }
+              />
+              <span style={{ ...unitStyle, fontSize: 12.5 }}>mm</span>
+            </div>
+          </div>
+          <div style={rowStyle}>
+            <div style={rowLabelStyle}>Rotation</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <EditNum
+                value={Number(selected.rotationDeg.toFixed(1))}
+                step={1}
+                onBeginEdit={beginEdit}
+                onCommit={(deg) =>
+                  dispatch({ type: "rotateRect", id: selected.id, rotationDeg: deg })
+                }
+              />
+              <span style={{ ...unitStyle, fontSize: 12.5 }}>°</span>
+            </div>
+          </div>
+          <div style={rowStyle}>
+            <div style={rowLabelStyle}>Vägghöjd</div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+              <EditNum
+                value={selected.wallHeight}
+                step={100}
+                min={0}
+                onCommit={(mm) =>
+                  dispatch({ type: "setWallHeight", id: selected.id, mm })
+                }
+              />
+              <span style={{ ...unitStyle, fontSize: 12.5 }}>mm</span>
+            </div>
+          </div>
           {selectedContainment && (
             <Row
               label="Tomt"
@@ -446,16 +667,21 @@ export function SidePanel({
           <div
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: 32,
+              fontSize: 48,
               color: "var(--ink-1)",
-              letterSpacing: "-0.01em",
+              letterSpacing: "-0.02em",
               fontVariantNumeric: "tabular-nums",
-              lineHeight: 1.1,
+              lineHeight: 1.05,
             }}
           >
             {sunHoursValue == null ? "—" : fmtNum(sunHoursValue, 1)}
-            <span style={{ fontSize: 15, color: "var(--ink-2)", marginLeft: 4 }}>h</span>
+            <span style={{ fontSize: 18, color: "var(--ink-2)", marginLeft: 4 }}>h</span>
           </div>
+          {sunHoursValue != null && (
+            <div style={{ fontSize: 13, color: "var(--ink-1)", marginTop: 4, lineHeight: 1.45 }}>
+              {sunHoursGloss(sunHoursValue)}
+            </div>
+          )}
           <div style={{ fontSize: 11.5, color: "var(--ink-2)", marginTop: 6, lineHeight: 1.5 }}>
             Aggregerad analys 06–20 vid midsommar. Oberoende av tidsreglaget.
           </div>
