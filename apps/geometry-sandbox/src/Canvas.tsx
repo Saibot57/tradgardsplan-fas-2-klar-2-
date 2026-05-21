@@ -438,16 +438,18 @@ export function Canvas({
       ctx.arc(center.x, center.y, 2, 0, Math.PI * 2);
       ctx.fill();
 
-      // Label
-      ctx.fillStyle = palette.labelText;
-      ctx.font = "11px var(--font-mono, ui-monospace, Menlo, monospace)";
-      ctx.fillText(
-        `${rect.id}  ${rect.width}×${rect.height} mm  ${rect.rotationDeg.toFixed(0)}°${
-          isWall ? `  H=${rect.wallHeight}` : ""
-        }`,
-        center.x + 6,
-        center.y - 6,
-      );
+      // Label — only when selected
+      if (isSelected) {
+        ctx.fillStyle = palette.labelText;
+        ctx.font = "11px var(--font-mono, ui-monospace, Menlo, monospace)";
+        ctx.fillText(
+          `${rect.id}  ${rect.width}×${rect.height} mm  ${rect.rotationDeg.toFixed(0)}°${
+            isWall ? `  H=${rect.wallHeight}` : ""
+          }`,
+          center.x + 6,
+          center.y - 6,
+        );
+      }
     }
 
     // Mått-overlay under drag (move/resize): grann-mått + boundary-mått
