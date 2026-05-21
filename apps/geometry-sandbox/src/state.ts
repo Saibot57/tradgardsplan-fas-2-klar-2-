@@ -4,7 +4,7 @@ import {
   type ObjectKind,
   type PlantPlacement,
   type Rect,
-  type SceneV6,
+  type SceneV7,
 } from "@kolonitradgard/spatial-core";
 
 /** Minimum width/height for any Rect in the sandbox (precision_policy §7). */
@@ -54,7 +54,7 @@ export interface SandboxState {
   selectedPlantId: string | null;
   /**
    * Växter som användaren markerat "planera" men inte placerat i någon bädd.
-   * Persisteras i scene (SceneV6.plannedPlantIds) och ingår i undo-stacken.
+   * Persisteras i scene (SceneV7.plannedPlantIds) och ingår i undo-stacken.
    */
   plannedPlantIds: string[];
 }
@@ -76,6 +76,7 @@ export type Action =
   | { type: "resizeRect"; id: string; cx: number; cy: number; width: number; height: number }
   | { type: "rotateRect"; id: string; rotationDeg: number }
   | { type: "setWallHeight"; id: string; mm: number }
+  | { type: "setSoilDepth"; id: string; mm: number }
   | { type: "setViewport"; viewport: SandboxState["viewport"] }
   | { type: "setSun"; dateIso: string }
   | { type: "toggleShadows" }
@@ -88,7 +89,7 @@ export type Action =
   | { type: "setShowAllMeasurements"; enabled: boolean }
   | { type: "setTool"; tool: "select" | "create" | "plot" | "measure" }
   | { type: "setCreateKind"; kind: ObjectKind }
-  | { type: "loadScene"; scene: SceneV6 }
+  | { type: "loadScene"; scene: SceneV7 }
   | { type: "newScene" }
   | { type: "setRectMeta"; id: string; label?: string; notes?: string }
   | { type: "setRectKind"; id: string; kind: ObjectKind }
@@ -116,6 +117,7 @@ export const AUTO_COMMIT_ACTIONS: ReadonlySet<Action["type"]> = new Set<Action["
   "addRect",
   "removeSelected",
   "setWallHeight",
+  "setSoilDepth",
   "setNorthRotation",
   "setLocation",
   "setPlotBoundary",
@@ -363,6 +365,21 @@ export function reducer(state: SandboxState, action: Action): SandboxState {
         rectangles: state.rectangles.map((r) =>
           r.id === action.id ? { ...r, wallHeight: Math.max(0, Math.round(action.mm)) } : r,
         ),
+      };
+
+    case "setSoilDepth":
+      return {
+        ...state,
+        rectangles: state.rectangles.map((r) => {
+          if (r.id !== action.id) return r;
+          const mm = Math.round(action.mm);
+          if (mm <= 0) {
+            // <= 0 rensar override → använd globalt default igen
+            const { soilDepthMm: _drop, ...rest } = r;
+            return rest;
+          }
+          return { ...r, soilDepthMm: mm };
+        }),
       };
 
     case "setViewport":

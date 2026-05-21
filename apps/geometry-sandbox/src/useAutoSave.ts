@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { serializeScene, parseScene, migrateScene, SceneParseError, type SceneV6 } from "@kolonitradgard/spatial-core";
+import { serializeScene, parseScene, migrateScene, SceneParseError, type SceneV7 } from "@kolonitradgard/spatial-core";
 import type { SandboxState } from "./state.js";
 import type { ScenePersistence } from "./persistence.js";
 
@@ -14,7 +14,7 @@ const DEBOUNCE_MS = 500;
 /**
  * Observerar scen-relevant state (rectangles + plot) och persistar via adapter.
  * Session-state (viewport, sun, selectedId, snapToGrid) ignoreras avsiktligt
- * — de är inte del av SceneV6 (ADR-008/009).
+ * — de är inte del av SceneV7 (ADR-008/009).
  */
 export function useAutoSave(
   state: SandboxState,
@@ -71,11 +71,11 @@ export function useAutoSave(
 }
 
 /**
- * Bootstrap: ladda persistad scen vid mount. Returnerar parsad SceneV6 eller null.
+ * Bootstrap: ladda persistad scen vid mount. Returnerar parsad SceneV7 eller null.
  * Hanterar fel tyst — vid migration/parse-fel returneras null så appen startar
  * med default-state istället för att krascha.
  */
-export async function bootstrapFromAdapter(adapter: ScenePersistence): Promise<SceneV6 | null> {
+export async function bootstrapFromAdapter(adapter: ScenePersistence): Promise<SceneV7 | null> {
   const raw = await adapter.load();
   if (!raw) return null;
   try {

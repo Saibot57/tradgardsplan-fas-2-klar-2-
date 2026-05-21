@@ -2,7 +2,7 @@ import type { PlantPlacement, PlotConfig, Rect } from "./types.js";
 import { isObjectKind } from "./kind.js";
 
 /** Current scene format version. Bump when schema changes. */
-export const SCENE_VERSION = 6;
+export const SCENE_VERSION = 7;
 
 export interface SceneV1 {
   version: 1;
@@ -81,8 +81,28 @@ export interface SceneV6 {
   plannedPlantIds: string[];
 }
 
+/**
+ * v7 — additivt: `Rect.soilDepthMm?` — per-bädd jorddjup (mm). Saknat == använd
+ * globalt default-djup (UI-state). Strukturellt identiskt med v6; ingen migration
+ * utöver versionsbumpning krävs. v6-filer parsar oförändrat som v7.
+ */
+export interface SceneV7 {
+  version: 7;
+  plot: PlotConfig;
+  boundary?: Rect | null;
+  rectangles: Rect[];
+  plannedPlantIds: string[];
+}
+
 /** Union type for all known versions — utökas vid framtida migrering. */
-export type Scene = SceneV1 | SceneV2 | SceneV3 | SceneV4 | SceneV5 | SceneV6;
+export type Scene =
+  | SceneV1
+  | SceneV2
+  | SceneV3
+  | SceneV4
+  | SceneV5
+  | SceneV6
+  | SceneV7;
 
 /** Validate that a string is a #RRGGBB hex color (lowercase or uppercase). */
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/;
@@ -131,6 +151,10 @@ function canonicalizeRect(r: Rect): Rect {
   if (typeof r.color === "string" && r.color.length > 0) {
     out.color = r.color;
   }
+  // soilDepthMm (v7): utelämnas om saknat eller <= 0 (== använd globalt default).
+  if (typeof r.soilDepthMm === "number" && r.soilDepthMm > 0) {
+    out.soilDepthMm = Math.round(r.soilDepthMm);
+  }
   return out;
 }
 
@@ -140,9 +164,9 @@ export function serializeScene(state: {
   boundary?: Rect | null;
   rectangles: Rect[];
   plannedPlantIds?: readonly string[];
-}): SceneV6 {
+}): SceneV7 {
   return {
-    version: 6,
+    version: 7,
     plot: {
       northRotationDeg: Math.round(state.plot.northRotationDeg),
       location: state.plot.location,
@@ -167,7 +191,8 @@ export function parseScene(raw: unknown): Scene {
     obj.version !== 3 &&
     obj.version !== 4 &&
     obj.version !== 5 &&
-    obj.version !== 6
+    obj.version !== 6 &&
+    obj.version !== 7
   ) {
     throw new SceneParseError(
       `Unsupported or missing version: ${obj.version}`,
@@ -193,7 +218,12 @@ export function parseScene(raw: unknown): Scene {
     validateRect(scene.boundary, raw);
   }
 
-  if (scene.version === 4 || scene.version === 5 || scene.version === 6) {
+  if (
+    scene.version === 4 ||
+    scene.version === 5 ||
+    scene.version === 6 ||
+    scene.version === 7
+  ) {
     if (!Array.isArray(scene.plannedPlantIds)) {
       throw new SceneParseError(
         `plannedPlantIds must be an array of strings (v${scene.version})`,
@@ -256,6 +286,19 @@ function validateRect(rect: Rect, raw: unknown): void {
       );
     }
   }
+  // soilDepthMm (v7) — om present måste vara ett ändligt tal > 0.
+  if (rect.soilDepthMm !== undefined) {
+    if (
+      typeof rect.soilDepthMm !== "number" ||
+      !Number.isFinite(rect.soilDepthMm) ||
+      rect.soilDepthMm <= 0
+    ) {
+      throw new SceneParseError(
+        `Invalid soilDepthMm: ${String(rect.soilDepthMm)} — must be a finite number > 0`,
+        raw,
+      );
+    }
+  }
   // plants (v4) — om present måste vara en korrekt PlantPlacement[].
   if (rect.plants !== undefined) {
     if (!Array.isArray(rect.plants)) {
@@ -294,19 +337,20 @@ function validatePlacement(p: PlantPlacement, raw: unknown): void {
 }
 
 /**
- * Migrate older scene versions to current (v6).
- * v1 → v6: identity at rect level (label/notes optional). Adds plannedPlantIds: [].
- * v2 → v6: identity (kind optional). Adds plannedPlantIds: [].
- * v3 → v6: identity at rect level. Adds plannedPlantIds: [].
- * v4 → v6: identity — bumpning bara markerar nytt kind-stöd, struktur oförändrad.
- * v5 → v6: identity — bumpning bara markerar nya kinds + valfri Rect.color.
- * v6 → v6: returnerar input (samma referens) för billig idempotency-check.
+ * Migrate older scene versions to current (v7).
+ * v1 → v7: identity at rect level (label/notes optional). Adds plannedPlantIds: [].
+ * v2 → v7: identity (kind optional). Adds plannedPlantIds: [].
+ * v3 → v7: identity at rect level. Adds plannedPlantIds: [].
+ * v4 → v7: identity — bumpning markerar kind-stöd, struktur oförändrad.
+ * v5 → v7: identity — bumpning markerar nya kinds + valfri Rect.color.
+ * v6 → v7: identity — bumpning markerar valfri Rect.soilDepthMm (saknat == globalt djup).
+ * v7 → v7: returnerar input (samma referens) för billig idempotency-check.
  */
-export function migrateScene(scene: Scene): SceneV6 {
-  if (scene.version === 6) return scene;
-  if (scene.version === 4 || scene.version === 5) {
+export function migrateScene(scene: Scene): SceneV7 {
+  if (scene.version === 7) return scene;
+  if (scene.version === 4 || scene.version === 5 || scene.version === 6) {
     return {
-      version: 6,
+      version: 7,
       plot: scene.plot,
       ...(scene.boundary != null ? { boundary: scene.boundary } : { boundary: null }),
       rectangles: scene.rectangles,
@@ -314,7 +358,7 @@ export function migrateScene(scene: Scene): SceneV6 {
     };
   }
   return {
-    version: 6,
+    version: 7,
     plot: scene.plot,
     ...(scene.boundary != null ? { boundary: scene.boundary } : { boundary: null }),
     rectangles: scene.rectangles,

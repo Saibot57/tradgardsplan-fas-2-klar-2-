@@ -8,7 +8,7 @@ import { StatusRow } from "./StatusRow.js";
 import { SidePanel } from "./SidePanel.js";
 import { AddRectPopover, KIND_DEFAULTS } from "./addObject.js";
 import { SceneMenu } from "./SceneMenu.js";
-import type { ObjectKind, Rect, SceneV6 } from "@kolonitradgard/spatial-core";
+import type { ObjectKind, Rect, SceneV7 } from "@kolonitradgard/spatial-core";
 import { PlantCatalog } from "./plant-catalog/PlantCatalog.js";
 import { loadDefaultPlantCatalog } from "./plants/PlantRepository.js";
 import {
@@ -106,7 +106,7 @@ export function App() {
   const adapter = useMemo<ScenePersistence>(
     () => ({
       label: "scenes",
-      async save(scene: SceneV6) {
+      async save(scene: SceneV7) {
         const id = currentSceneIdRef.current;
         if (!id) return;
         writeSceneData(id, scene);
@@ -555,7 +555,7 @@ export function App() {
 
   const totalAreaM2 = state.rectangles.reduce((s, r) => s + rectAreaM2(r), 0);
   const totalSoilL = state.rectangles.reduce(
-    (s, r) => s + bedSoilVolumeLitres(r, bedDepth),
+    (s, r) => s + bedSoilVolumeLitres(r, r.soilDepthMm ?? bedDepth),
     0,
   );
 

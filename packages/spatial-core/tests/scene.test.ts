@@ -28,7 +28,7 @@ describe("scene — serialize/parse roundtrip", () => {
     const serialized = serializeScene(state);
     const parsed = parseScene(serialized);
 
-    expect(parsed.version).toBe(6);
+    expect(parsed.version).toBe(7);
     expect(parsed.rectangles[0]!.cx).toBe(1000);
     expect(parsed.rectangles[0]!.width).toBe(300);
   });
@@ -118,80 +118,93 @@ describe("scene — boundary round-trip", () => {
 });
 
 describe("scene — migrateScene", () => {
-  it("migrateScene v1 → v6 bumps version and adds plannedPlantIds: []", () => {
+  it("migrateScene v1 → v7 bumps version and adds plannedPlantIds: []", () => {
     const v1 = { version: 1 as const, plot: validPlot, rectangles: [validRect] };
-    const v6 = migrateScene(v1);
-    expect(v6.version).toBe(6);
-    expect(v6.rectangles[0]?.cx).toBe(validRect.cx);
-    expect(v6.plannedPlantIds).toEqual([]);
+    const v7 = migrateScene(v1);
+    expect(v7.version).toBe(7);
+    expect(v7.rectangles[0]?.cx).toBe(validRect.cx);
+    expect(v7.plannedPlantIds).toEqual([]);
   });
 
-  it("migrateScene v2 → v6 bumps version", () => {
+  it("migrateScene v2 → v7 bumps version", () => {
     const v2 = { version: 2 as const, plot: validPlot, rectangles: [validRect] };
-    const v6 = migrateScene(v2);
-    expect(v6.version).toBe(6);
-    expect(v6.plannedPlantIds).toEqual([]);
+    const v7 = migrateScene(v2);
+    expect(v7.version).toBe(7);
+    expect(v7.plannedPlantIds).toEqual([]);
   });
 
-  it("migrateScene v3 → v6 adds plannedPlantIds without touching rectangles", () => {
+  it("migrateScene v3 → v7 adds plannedPlantIds without touching rectangles", () => {
     const v3 = { version: 3 as const, plot: validPlot, rectangles: [validRect] };
-    const v6 = migrateScene(v3);
-    expect(v6.version).toBe(6);
-    expect(v6.plannedPlantIds).toEqual([]);
-    expect(v6.rectangles[0]).toEqual(v3.rectangles[0]);
+    const v7 = migrateScene(v3);
+    expect(v7.version).toBe(7);
+    expect(v7.plannedPlantIds).toEqual([]);
+    expect(v7.rectangles[0]).toEqual(v3.rectangles[0]);
   });
 
-  it("migrateScene v4 → v6 bevarar plannedPlantIds och rectangles", () => {
+  it("migrateScene v4 → v7 bevarar plannedPlantIds och rectangles", () => {
     const v4 = {
       version: 4 as const,
       plot: validPlot,
       rectangles: [validRect],
       plannedPlantIds: ["tomat", "chili"],
     };
-    const v6 = migrateScene(v4);
-    expect(v6.version).toBe(6);
-    expect(v6.plannedPlantIds).toEqual(["tomat", "chili"]);
-    expect(v6.rectangles[0]).toEqual(v4.rectangles[0]);
+    const v7 = migrateScene(v4);
+    expect(v7.version).toBe(7);
+    expect(v7.plannedPlantIds).toEqual(["tomat", "chili"]);
+    expect(v7.rectangles[0]).toEqual(v4.rectangles[0]);
   });
 
-  it("migrateScene v5 → v6 bevarar plannedPlantIds och rectangles", () => {
+  it("migrateScene v5 → v7 bevarar plannedPlantIds och rectangles", () => {
     const v5 = {
       version: 5 as const,
       plot: validPlot,
       rectangles: [validRect],
       plannedPlantIds: ["tomat"],
     };
-    const v6 = migrateScene(v5);
-    expect(v6.version).toBe(6);
-    expect(v6.plannedPlantIds).toEqual(["tomat"]);
+    const v7 = migrateScene(v5);
+    expect(v7.version).toBe(7);
+    expect(v7.plannedPlantIds).toEqual(["tomat"]);
   });
 
-  it("migrateScene is identity for v6", () => {
+  it("migrateScene v6 → v7 bevarar plannedPlantIds och rectangles", () => {
     const v6 = {
       version: 6 as const,
+      plot: validPlot,
+      rectangles: [validRect],
+      plannedPlantIds: ["tomat"],
+    };
+    const v7 = migrateScene(v6);
+    expect(v7.version).toBe(7);
+    expect(v7.plannedPlantIds).toEqual(["tomat"]);
+    expect(v7.rectangles[0]).toEqual(v6.rectangles[0]);
+  });
+
+  it("migrateScene is identity for v7", () => {
+    const v7 = {
+      version: 7 as const,
       plot: validPlot,
       rectangles: [],
       plannedPlantIds: ["tomat"],
     };
-    expect(migrateScene(v6)).toBe(v6);
+    expect(migrateScene(v7)).toBe(v7);
   });
 
-  it("migrateScene v1 → v6 bevarar boundary", () => {
+  it("migrateScene v1 → v7 bevarar boundary", () => {
     const boundary: Rect = {
       id: "plot-boundary",
       cx: 6000, cy: 5000, width: 12000, height: 8000,
       rotationDeg: 0, wallHeight: 0,
     };
     const v1 = { version: 1 as const, plot: validPlot, boundary, rectangles: [] };
-    const v6 = migrateScene(v1);
-    expect(v6.boundary?.id).toBe("plot-boundary");
+    const v7 = migrateScene(v1);
+    expect(v7.boundary?.id).toBe("plot-boundary");
   });
 });
 
 describe("scene v6 — plannedPlantIds", () => {
-  it("serializeScene emits version 6", () => {
+  it("serializeScene emits version 7", () => {
     const s = serializeScene({ plot: validPlot, rectangles: [validRect] });
-    expect(s.version).toBe(6);
+    expect(s.version).toBe(7);
   });
 
   it("serializeScene defaults plannedPlantIds to []", () => {
@@ -216,8 +229,8 @@ describe("scene v6 — plannedPlantIds", () => {
         plannedPlantIds: ["pisum-sativum", "capsicum-frutescens"],
       }),
     );
-    expect(parsed.version).toBe(6);
-    if (parsed.version !== 6) throw new Error("expected v6");
+    expect(parsed.version).toBe(7);
+    if (parsed.version !== 7) throw new Error("expected v7");
     expect(parsed.plannedPlantIds).toEqual(["pisum-sativum", "capsicum-frutescens"]);
   });
 
@@ -471,6 +484,54 @@ describe("scene v5 — kind 'rabatt'", () => {
     };
     const parsed = parseScene(v4);
     expect(parsed.version).toBe(4);
+  });
+});
+
+describe("scene v7 — Rect.soilDepthMm (per-bädd jorddjup)", () => {
+  it("serializeScene bevarar soilDepthMm och rundar till heltal", () => {
+    const r: Rect = { ...validRect, soilDepthMm: 450.7 };
+    const s = serializeScene({ plot: validPlot, rectangles: [r] });
+    expect(s.rectangles[0]?.soilDepthMm).toBe(451);
+  });
+
+  it("serializeScene utelämnar soilDepthMm när saknad eller <= 0", () => {
+    const none = serializeScene({ plot: validPlot, rectangles: [validRect] });
+    expect(none.rectangles[0]?.soilDepthMm).toBeUndefined();
+    const zero = serializeScene({
+      plot: validPlot,
+      rectangles: [{ ...validRect, soilDepthMm: 0 }],
+    });
+    expect(zero.rectangles[0]?.soilDepthMm).toBeUndefined();
+  });
+
+  it("round-trip serialize → parse bevarar soilDepthMm", () => {
+    const r: Rect = { ...validRect, soilDepthMm: 600 };
+    const parsed = parseScene(serializeScene({ plot: validPlot, rectangles: [r] }));
+    expect(parsed.rectangles[0]?.soilDepthMm).toBe(600);
+  });
+
+  it("parseScene accepterar soilDepthMm i v7-fil", () => {
+    const v7 = {
+      version: 7,
+      plot: validPlot,
+      rectangles: [{ ...validRect, soilDepthMm: 300 }],
+      plannedPlantIds: [],
+    };
+    const parsed = parseScene(v7);
+    expect(parsed.rectangles[0]?.soilDepthMm).toBe(300);
+  });
+
+  it("parseScene kastar på icke-positivt eller icke-ändligt soilDepthMm", () => {
+    for (const bad of [0, -100, Number.NaN, Number.POSITIVE_INFINITY, "300"]) {
+      expect(() =>
+        parseScene({
+          version: 7,
+          plot: validPlot,
+          rectangles: [{ ...validRect, soilDepthMm: bad }],
+          plannedPlantIds: [],
+        }),
+      ).toThrow(SceneParseError);
+    }
   });
 });
 

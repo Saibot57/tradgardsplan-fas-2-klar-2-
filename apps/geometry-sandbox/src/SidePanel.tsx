@@ -260,7 +260,7 @@ export function SidePanel({
       const k = getKind(r);
       totals[k].count += 1;
       totals[k].areaM2 += rectAreaM2(r);
-      totals[k].soilL += bedSoilVolumeLitres(r, bedDepth);
+      totals[k].soilL += bedSoilVolumeLitres(r, r.soilDepthMm ?? bedDepth);
       if (plot && rectContainedIn(r, plot) === "outside") outsideCount += 1;
     }
     return { totals, outsideCount };
@@ -648,15 +648,35 @@ export function SidePanel({
             }
           />
           {selectedKind && KIND_RULES[selectedKind].hasSoil && (
-            <Row
-              label={`Jordvolym (${bedDepth} mm)`}
-              value={
-                <>
-                  {fmtInt(bedSoilVolumeLitres(selected, bedDepth))}{" "}
-                  <span style={unitStyle}>L</span>
-                </>
-              }
-            />
+            <>
+              <div style={rowStyle}>
+                <div style={rowLabelStyle}>
+                  Jorddjup{selected.soilDepthMm === undefined ? " (default)" : ""}
+                </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <EditNum
+                    value={selected.soilDepthMm ?? bedDepth}
+                    step={50}
+                    min={0}
+                    onCommit={(mm) =>
+                      dispatch({ type: "setSoilDepth", id: selected.id, mm })
+                    }
+                  />
+                  <span style={{ ...unitStyle, fontSize: 12.5 }}>mm</span>
+                </div>
+              </div>
+              <Row
+                label="Jordvolym"
+                value={
+                  <>
+                    {fmtInt(
+                      bedSoilVolumeLitres(selected, selected.soilDepthMm ?? bedDepth),
+                    )}{" "}
+                    <span style={unitStyle}>L</span>
+                  </>
+                }
+              />
+            </>
           )}
         </section>
       )}

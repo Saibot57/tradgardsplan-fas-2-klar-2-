@@ -95,6 +95,12 @@ export interface Rect {
    * scene.parseScene; canvas-renderaren applicerar färgen med alpha-blending.
    */
   color?: string;
+  /**
+   * Per-bädd jorddjup i mm (scene v7). Saknas == använd det globala
+   * default-djupet (UI-state). Endast objekt med `hasSoil` använder fältet;
+   * för övriga kinds ignoreras det. Skild från `wallHeight` (skuggextrudering).
+   */
+  soilDepthMm?: number;
 }
 
 /**

@@ -5,7 +5,7 @@ import {
   reducer,
   type SandboxState,
 } from "../src/state.js";
-import type { Rect, SceneV6 } from "@kolonitradgard/spatial-core";
+import type { Rect, SceneV7 } from "@kolonitradgard/spatial-core";
 
 function bareState(): SandboxState {
   return makeInitialState(new Date(2026, 4, 15, 12, 0, 0));
@@ -318,8 +318,8 @@ describe("showPlantOnCanvas", () => {
 
 describe("loadScene reads plannedPlantIds (v6)", () => {
   it("replaces plannedPlantIds with scene value", () => {
-    const scene: SceneV6 = {
-      version: 6,
+    const scene: SceneV7 = {
+      version: 7,
       plot: { northRotationDeg: 0, location: { latitudeDeg: 0, longitudeDeg: 0 } },
       boundary: null,
       rectangles: [],
@@ -331,8 +331,8 @@ describe("loadScene reads plannedPlantIds (v6)", () => {
   });
 
   it("loads rectangles with plants[] preserved", () => {
-    const scene: SceneV6 = {
-      version: 6,
+    const scene: SceneV7 = {
+      version: 7,
       plot: { northRotationDeg: 0, location: { latitudeDeg: 0, longitudeDeg: 0 } },
       boundary: null,
       rectangles: [

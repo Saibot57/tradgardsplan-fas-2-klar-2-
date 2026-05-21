@@ -3,7 +3,7 @@
  *
  * Layout:
  *   plotplaner.scenes.index        → ScenesIndex (metadata + currentId)
- *   plotplaner.scenes.<id>         → SceneV6 (serialized scene data)
+ *   plotplaner.scenes.<id>         → SceneV7 (serialized scene data)
  *
  * This is the layer *above* SandboxState described in README §6: the reducer
  * still owns one scene at a time; this module decides which scene's bytes are
@@ -17,7 +17,7 @@ import {
   migrateScene,
   parseScene,
   SceneParseError,
-  type SceneV6,
+  type SceneV7,
 } from "@kolonitradgard/spatial-core";
 
 export interface SceneMeta {
@@ -63,7 +63,7 @@ export function nextSceneId(): string {
 }
 
 /** Härled meta-fält ur scen-data. */
-export function metaFromScene(scene: SceneV6): Pick<SceneMeta, "plotWidthMm" | "plotHeightMm" | "bedCount"> {
+export function metaFromScene(scene: SceneV7): Pick<SceneMeta, "plotWidthMm" | "plotHeightMm" | "bedCount"> {
   return {
     plotWidthMm: scene.boundary ? scene.boundary.width : null,
     plotHeightMm: scene.boundary ? scene.boundary.height : null,
@@ -71,8 +71,8 @@ export function metaFromScene(scene: SceneV6): Pick<SceneMeta, "plotWidthMm" | "
   };
 }
 
-/** Parsa + migrera rå-data till en giltig SceneV6, eller null vid fel. */
-export function parseSceneData(raw: unknown): SceneV6 | null {
+/** Parsa + migrera rå-data till en giltig SceneV7, eller null vid fel. */
+export function parseSceneData(raw: unknown): SceneV7 | null {
   try {
     return migrateScene(parseScene(raw));
   } catch (err) {
@@ -83,13 +83,13 @@ export function parseSceneData(raw: unknown): SceneV6 | null {
   }
 }
 
-export function readSceneData(id: string): SceneV6 | null {
+export function readSceneData(id: string): SceneV7 | null {
   const raw = readJson<unknown>(sceneKey(id));
   if (raw == null) return null;
   return parseSceneData(raw);
 }
 
-export function writeSceneData(id: string, scene: SceneV6): void {
+export function writeSceneData(id: string, scene: SceneV7): void {
   writeJson(sceneKey(id), scene);
 }
 

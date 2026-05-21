@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { makeInitialState, nextId, nextPlacementId, reducer, SUN_HOUR_MIN, SUN_HOUR_MAX } from "../src/state.js";
-import { getKind, type Rect, type SceneV6 } from "@kolonitradgard/spatial-core";
+import { getKind, type Rect, type SceneV7 } from "@kolonitradgard/spatial-core";
 
 function hourOf(iso: string): number {
   const d = new Date(iso);
@@ -87,9 +87,9 @@ describe("reducer — loadScene synkar id-räknare (förhindrar id-krock)", () =
     return { id, cx, cy: 1000, width: 1000, height: 1000, rotationDeg: 0, wallHeight: 0 };
   }
 
-  function sceneWith(rects: Rect[]): SceneV6 {
+  function sceneWith(rects: Rect[]): SceneV7 {
     return {
-      version: 6,
+      version: 7,
       plot: makeInitialState().plot,
       rectangles: rects,
       plannedPlantIds: [],
